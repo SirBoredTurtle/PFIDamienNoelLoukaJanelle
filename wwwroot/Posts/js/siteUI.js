@@ -208,11 +208,13 @@ async function renderPosts(queryString) {
     return endOfData;
 }
 function renderPost(post, loggedUser) {
+
     let date = convertToFrenchDate(UTC_To_Local(post.Date));
     let crudIcon =
         `
         <span class="editCmd cmdIconSmall fa fa-pencil" postId="${post.Id}" title="Modifier nouvelle"></span>
         <span class="deleteCmd cmdIconSmall fa fa-trash" postId="${post.Id}" title="Effacer nouvelle"></span>
+        <span class="likeCmd cmdIconSmall fa-regular fa-thumbs-up" postId="${post.Id}" title="Liker nouvelle"></span>
         `;
 
     return $(`
@@ -233,6 +235,10 @@ function renderPost(post, loggedUser) {
             </div>         
         </div>
     `);
+}
+async function GetNumLikes(Post)
+{
+    return await Likes_API.Get("?PostId=" + Post.Id);
 }
 async function compileCategories() {
     categories = [];

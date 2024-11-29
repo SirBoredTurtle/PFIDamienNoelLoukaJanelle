@@ -4,8 +4,8 @@ export default class Likes extends Model {
     constructor() {
         super(true /* secured Id */);
 
-        this.addField('PostId', 'integer');
-        this.addField('UserId', 'integer');
+        this.addField('PostId', 'string');
+        this.addField('UserId', 'string');
 
         this.setKey("Title");
     }
