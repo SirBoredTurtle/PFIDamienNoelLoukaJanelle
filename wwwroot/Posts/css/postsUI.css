@@ -127,7 +127,26 @@
     border: 1px solid #ccc;
     border-radius: var(--borderRadius);
 }
-
+.containerLog{
+    margin: 10px;
+    border: 1px solid #ccc;
+    border-radius: var(--borderRadius);
+}
+.Email {
+    margin: 10px;
+    width: 730px;
+}
+.Password{
+    margin: 10px;
+    width: 730px;
+}
+.Name{
+    margin: 10px;
+    width: 730px;
+}
+.connect{
+    margin: 10px;
+}
 .commentsPanel {
     border-radius: 5px;
     margin-top: 10px;
