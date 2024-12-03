@@ -624,25 +624,15 @@ function renderLoginForm(contact = null) {
     initImageUploaders();
     initFormValidation(); 
 
-    $("#commit").click(function () {
-        $("#commit").off();
-        return $('#savePost').trigger("click");
-    });
-    $('#postForm').on("submit", async function (event) {
+    $('#contactForm').on("submit", async function (event) {
         event.preventDefault();
-        let post = getFormData($("#postForm"));
-        if (post.Category != selectedCategory)
-            selectedCategory = "";
-        if (create || !('keepDate' in post))
-            post.Date = Local_to_UTC(Date.now());
-        delete post.keepDate;
-        post = await Posts_API.Save(post, create);
-        if (!Posts_API.error) {
-            await showPosts();
-            postsPanel.scrollToElem(post.Id);
-        }
+        let contact = getFormData($("#contactForm"));
+        showWaitingGif();
+        let result = await API_SaveContact(contact, create);
+        if (result)
+            renderContacts();
         else
-            showError("Une erreur est survenue! ", Posts_API.currentHttpError);
+            renderError("Une erreur est survenue! " + API_getcurrentHttpError());
     });
     $('#cancel').on("click", async function () {
         await showPosts();
