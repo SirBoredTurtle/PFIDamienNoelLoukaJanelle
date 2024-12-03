@@ -500,15 +500,30 @@ function  renderConForm() {
                 placeholder="Mot de passe"
         />
         </div>
-        <input type="submit" value="Enregistrer" id="saveContact" class="btn btn-primary">
+        <div class="btnCon"> 
+        <input type="submit" value="Enregistrer" id="savePost" class="btn btn-primary">
         <div class="dropdown-divider"></div>
-        <input type="button" value="Inscription" id="Login" class="btn btn-secondary">
+        <input type="button" value="Inscription" id="Login" class="btn btn-secondary">\
+        </div>
     `);
 
     initImageUploaders();
     initFormValidation(); 
-
-    
+    $("#commit").click(function () {
+        $("#commit").off();
+        return $('#savePost').trigger("click");
+    });
+    $('#postForm').on("submit", async function (event) {
+        event.preventDefault();
+        let post = getFormData($("#postForm"));
+        post = await Posts_API.Save(post, create);
+        if (!Posts_API.error) {
+            await showPosts();
+            postsPanel.scrollToElem(post.Id);
+        }
+        else
+            showError("Une erreur est survenue! ", Posts_API.currentHttpError);
+    });
     $('#Login').on("click", async function () {
         await showLoginCmdForm();
     });
