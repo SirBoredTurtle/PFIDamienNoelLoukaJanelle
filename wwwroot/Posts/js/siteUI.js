@@ -24,7 +24,7 @@ async function Init_UI() {
     $('#createPost').on("click", async function () {
         showCreatePostForm();
     });
-    $('loginCmd'). on("click", function () {
+    $('loginCmd').on("click", function () {
         showLoginCmdForm();
     });
     $('#abort').on("click", async function () {
@@ -199,6 +199,10 @@ async function renderPosts(queryString) {
     let endOfData = false;
     queryString += "&sort=date,desc";
     compileCategories();
+    for (let i = 0; i < Likes.length; i++) {
+        Likes[i] = null;
+
+    }
     let responselike = await Likes_API.Get();
     if (!Posts_API.error) {
         currentETag = responselike.ETag;
@@ -244,9 +248,10 @@ function renderPost(post, loggedUser) {
     let thispostlikes = [];
     if (Likes.length > 0) {
         Likes.forEach(like => {
-            if(like.PostId == post.Id)
-            {
-                thispostlikes.push(like);
+            if (like != null) {
+                if (like.PostId == post.Id) {
+                    thispostlikes.push(like);
+                }
             }
         });
     } else
@@ -493,7 +498,7 @@ function newContact() {
     contact.Email = "";
     return contact;
 }
-function  renderConForm() {
+function renderConForm() {
     $("#form").show();
     $("#form").empty();
     $("#form").append(`
@@ -519,9 +524,9 @@ function  renderConForm() {
     `);
 
     initImageUploaders();
-    initFormValidation(); 
+    initFormValidation();
 
-    
+
     $('#Login').on("click", async function () {
         await showLoginCmdForm();
     });
@@ -620,7 +625,7 @@ function renderLoginForm(contact = null) {
     if (create) $("#keepDateControl").hide();
 
     initImageUploaders();
-    initFormValidation(); 
+    initFormValidation();
 
     $("#commit").click(function () {
         $("#commit").off();
