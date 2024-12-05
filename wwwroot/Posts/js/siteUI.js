@@ -16,6 +16,7 @@ let itemLayout;
 let waiting = null;
 let showKeywords = false;
 let keywordsOnchangeTimger = null;
+let Likes = [];
 
 Init_UI();
 async function Init_UI() {
@@ -25,9 +26,6 @@ async function Init_UI() {
     });
     $('#abort').on("click", async function () {
         showPosts();
-    });
-    $('loginCmd'). on("click", function () {
-        showLoginCmdForm();
     });
     $('#aboutCmd').on("click", function () {
         showAbout();
@@ -125,11 +123,6 @@ function showForm() {
     $('#commit').show();
     $('#abort').show();
 }
-function showFormCompte() {
-    hidePosts();
-    $('#form').show();
-    $('#abort').show();
-}
 function showError(message, details = "") {
     hidePosts();
     $('#form').hide();
@@ -149,15 +142,6 @@ function showCreatePostForm() {
     showForm();
     $("#viewTitle").text("Ajout de nouvelle");
     renderPostForm();
-}
-function showConCmdForm() {
-    showFormCompte();
-    $("#viewTitle").text("Connexion");
-    renderConForm();
-}
-function showLoginCmdForm() {
-    showFormCompte();
-    renderLoginForm();
 }
 function showEditPostForm(id) {
     showForm();
@@ -198,6 +182,19 @@ async function renderPosts(queryString) {
     let endOfData = false;
     queryString += "&sort=date,desc";
     compileCategories();
+    let responselike = await Likes_API.Get();
+    if (!Posts_API.error) {
+        currentETag = responselike.ETag;
+        let ListLikes = responselike.data;
+        if (ListLikes.length > 0) {
+            ListLikes.forEach(like => {
+                Likes.push(like);
+            });
+        } else
+            endOfData = true;
+    } else {
+        showError(Posts_API.currentHttpError);
+    }
     if (selectedCategory != "") queryString += "&category=" + selectedCategory;
     if (showKeywords) {
         let keys = $("#searchKeys").val().replace(/[ ]/g, ',');
@@ -227,11 +224,22 @@ async function renderPosts(queryString) {
 function renderPost(post, loggedUser) {
 
     let date = convertToFrenchDate(UTC_To_Local(post.Date));
+    let thispostlikes = [];
+    if (Likes.length > 0) {
+        Likes.forEach(like => {
+            if(like.PostId == post.Id)
+            {
+                thispostlikes.push(like);
+            }
+        });
+    } else
+        endOfData = true;
     let crudIcon =
         `
         <span class="editCmd cmdIconSmall fa fa-pencil" postId="${post.Id}" title="Modifier nouvelle"></span>
         <span class="deleteCmd cmdIconSmall fa fa-trash" postId="${post.Id}" title="Effacer nouvelle"></span>
         <span class="likeCmd cmdIconSmall fa-regular fa-thumbs-up" postId="${post.Id}" title="Liker nouvelle"></span>
+        <span postId="${post.Id}">${thispostlikes.length}</span>
         `;
 
     return $(`
@@ -253,10 +261,7 @@ function renderPost(post, loggedUser) {
         </div>
     `);
 }
-async function GetNumLikes(Post)
-{
-    return await Likes_API.Get("?PostId=" + Post.Id);
-}
+
 async function compileCategories() {
     categories = [];
     let response = await Posts_API.GetQuery("?fields=category&sort=category");
@@ -277,12 +282,6 @@ function updateDropDownMenu() {
     let DDMenu = $("#DDMenu");
     let selectClass = selectedCategory === "" ? "fa-check" : "fa-fw";
     DDMenu.empty();
-    DDMenu.append($(`
-        <div class="dropdown-item" id="ConnectionCmd">
-                <i class="menuIcon fa fa-sign-in mx-2"></i> Connexion
-        </div>
-        `));
-    DDMenu.append($(`<div class="dropdown-divider"></div>`));
     DDMenu.append($(`
         <div class="dropdown-item menuItemLayout" id="allCatCmd">
             <i class="menuIcon fa ${selectClass} mx-2"></i> Toutes les catégories
@@ -305,9 +304,6 @@ function updateDropDownMenu() {
         `));
     $('#aboutCmd').on("click", function () {
         showAbout();
-    });
-    $('#ConnectionCmd').on("click", function () {
-        showConCmdForm();
     });
     $('#allCatCmd').on("click", async function () {
         selectedCategory = "";
@@ -471,171 +467,6 @@ function newPost() {
     Post.Image = "news-logo-upload.png";
     Post.Category = "";
     return Post;
-}
-function newContact() {
-    contact = {};
-    contact.Id = 0;
-    contact.Name = "";
-    contact.Password = "";
-    contact.Email = "";
-    return contact;
-}
-function  renderConForm() {
-    $("#form").show();
-    $("#form").empty();
-    $("#form").append(`
-        <div class="connect">
-        <input 
-                class="form-control Email"
-                name="Email"
-                id="Email"
-                placeholder="Courriel"
-        />
-        </div>
-        <div class="connect">
-        <input
-                class="form-control Alpha"
-                name="Password"
-                id="Password"
-                placeholder="Mot de passe"
-        />
-        </div>
-        <div class="btnCon"> 
-        <input type="submit" value="Enregistrer" id="savePost" class="btn btn-primary">
-        <div class="dropdown-divider"></div>
-        <input type="button" value="Inscription" id="Login" class="btn btn-secondary">\
-        </div>
-    `);
-
-    initImageUploaders();
-    initFormValidation(); 
-    $("#commit").click(function () {
-        $("#commit").off();
-        return $('#savePost').trigger("click");
-    });
-    $('#postForm').on("submit", async function (event) {
-        event.preventDefault();
-        let post = getFormData($("#postForm"));
-        post = await Posts_API.Save(post, create);
-        if (!Posts_API.error) {
-            await showPosts();
-            postsPanel.scrollToElem(post.Id);
-        }
-        else
-            showError("Une erreur est survenue! ", Posts_API.currentHttpError);
-    });
-    $('#Login').on("click", async function () {
-        await showLoginCmdForm();
-    });
-}
-
-function renderLoginForm(contact = null) {
-    let create = contact == null;
-    if (create) {
-        contact = newContact();
-        contact.Avatar = "no-avatar.png";
-    }
-    $("#viewTitle").text(create ? "Inscription" : "Modification");
-    $("#form").show();
-    $("#form").empty();
-    $("#form").append(`
-            <form class="form" id="contactForm">
-            <input type="hidden" name="Id" value="${contact.Id}"/>
-            <div class='containerLog'>
-
-            <label for="Email" class="form-label"> Courriel </label>
-            <input 
-                class="form-control Email"
-                name="Email"
-                id="Email"
-                placeholder="Courriel"
-                required
-                RequireMessage="Veuillez entrer votre courriel" 
-                InvalidMessage="Veuillez entrer un courriel valide"
-                value="${contact.Email}"
-            />
-            <input 
-                class="form-control Email"
-                name="Email"
-                id="Email"
-                placeholder="Vérification"
-                required
-                RequireMessage="Veuillez entrer votre courriel" 
-                InvalidMessage="Le courriel entrer ne correpond pas"
-                value="${contact.Email}"
-            />
-            </div>
-
-            <div class='containerLog'>
-
-            <label for="Password" class="form-label"> Mot de passe </label>
-            <input
-                class="form-control Alpha"
-                name="Password"
-                id="Password"
-                placeholder="Mot de passe"
-                required
-                RequireMessage="Veuillez entrer votre Mot de passe" 
-                InvalidMessage="Veuillez entrer un Mot de passe valide"
-                value="${contact.Password}" 
-            />
-            <input
-                class="form-control Alpha"
-                name="Password"
-                id="Password"
-                placeholder="Vérification"
-                required
-                RequireMessage="Veuillez entrer votre Mot de passe" 
-                InvalidMessage="Le Mot de passe entrer ne correpond pas"
-                value="${contact.Password}" 
-            />
-            </div>
-
-            <div class='containerLog'>
-
-            <label for="Name" class="form-label">Nom </label>
-            <input 
-                class="form-control Alpha"
-                name="Name" 
-                id="Name" 
-                placeholder="Nom"
-                required
-                RequireMessage="Veuillez entrer un nom"
-                InvalidMessage="Le nom comporte un caractère illégal" 
-                value="${contact.Name}"
-            />
-            </div>
-
-            <!-- nécessite le fichier javascript 'imageControl.js' -->
-            <label class="form-label">Avatar </label>
-            <div   class='imageUploader' 
-                   newImage='${create}' 
-                   controlId='Avatar' 
-                   imageSrc='${contact.Avatar}' 
-                   waitingImage="Loading_icon.gif">
-            </div>
-            <hr>
-            <input type="submit" value="Enregistrer" id="saveContact" class="btn btn-primary">
-            <input type="button" value="Annuler" id="cancel" class="btn btn-secondary">
-        </form>
-    `);
-    if (create) $("#keepDateControl").hide();
-
-    initImageUploaders();
-    initFormValidation(); 
-
-    $('#contactForm').on("submit", async function (event) {
-        event.preventDefault();
-        let contact = getFormData($("#contactForm"));
-        let result = await API_SaveContact(contact, create);
-        if (result)
-            renderContacts();
-        else
-            renderError("Une erreur est survenue! " + API_getcurrentHttpError());
-    });
-    $('#cancel').on("click", async function () {
-        await showPosts();
-    });
 }
 function renderPostForm(post = null) {
     let create = post == null;
