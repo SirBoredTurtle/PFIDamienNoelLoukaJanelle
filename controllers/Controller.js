@@ -36,20 +36,36 @@ export default class Controller {
         } else
             this.HttpContext.response.unAuthorized("Unauthorized access");
     }
+
+    
     post(data) {
-        if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
-            data = this.repository.add(data);
-            if (this.repository.model.state.isValid) {
-                this.HttpContext.response.created(data);
+        const route = this.HttpContext.path.id;
+        if (route === "register") {
+            const requiredAuthorization = AccessControl.anonymous();
+            if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
+                this.register(data);
             } else {
-                if (this.repository.model.state.inConflict)
-                    this.HttpContext.response.conflict(this.repository.model.state.errors);
-                else
-                    this.HttpContext.response.badRequest(this.repository.model.state.errors);
+                this.HttpContext.response.unAuthorized("Unauthorized access");
             }
-        } else
-            this.HttpContext.response.unAuthorized("Unauthorized access");
+        }else if (route === "login")
+        {
+            const requiredAuthorization = AccessControl.anonymous();
+            if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
+                this.login(data);
+            } else {
+                this.HttpContext.response.unAuthorized("Unauthorized access");
+            }
+        } 
+        else {
+            if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
+                super.post(data);
+            } else {
+                this.HttpContext.response.unAuthorized("Unauthorized access");
+            }
+        }
     }
+    
+    
     put(data) {
         if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
             if (this.HttpContext.path.id !== '') {

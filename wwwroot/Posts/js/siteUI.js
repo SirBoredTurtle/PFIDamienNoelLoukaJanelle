@@ -16,6 +16,7 @@ let itemLayout;
 let waiting = null;
 let showKeywords = false;
 let keywordsOnchangeTimger = null;
+let loggedUser;
 let Likes = [];
 
 Init_UI();
@@ -158,7 +159,7 @@ function showConCmdForm() {
 }
 function showLoginCmdForm() {
     showFormCompte();
-    renderLoginForm();
+    renderRegisterForm();
 }
 function showEditPostForm(id) {
     showForm();
@@ -201,7 +202,6 @@ async function renderPosts(queryString) {
     compileCategories();
     for (let i = 0; i < Likes.length; i++) {
         Likes[i] = null;
-
     }
     let responselike = await Likes_API.Get();
     if (!Posts_API.error) {
@@ -304,11 +304,23 @@ function updateDropDownMenu() {
     let DDMenu = $("#DDMenu");
     let selectClass = selectedCategory === "" ? "fa-check" : "fa-fw";
     DDMenu.empty();
+    if(!loggedUser)
+    {
     DDMenu.append($(`
         <div class="dropdown-item" id="ConnectionCmd">
                 <i class="menuIcon fa fa-sign-in mx-2"></i> Connexion
         </div>
         `));
+    }
+    else
+    {
+        DDMenu.append($(`
+            <div class="dropdown-item" id="DeconnectionCmd">
+                    <i class="menuIcon fa fa-sign-in mx-2"></i> Deconnexion
+            </div>
+            `));
+    }
+
     DDMenu.append($(`<div class="dropdown-divider"></div>`));
     DDMenu.append($(`
         <div class="dropdown-item menuItemLayout" id="allCatCmd">
@@ -335,6 +347,9 @@ function updateDropDownMenu() {
     });
     $('#ConnectionCmd').on("click", function () {
         showConCmdForm();
+    });
+    $('#DeconnectionCmd').on("click", function () {
+        Deconnection();
     });
     $('#allCatCmd').on("click", async function () {
         selectedCategory = "";
@@ -386,7 +401,16 @@ function removeWaitingGif() {
     clearTimeout(waiting);
     $("#waitingGif").remove();
 }
-
+async function Deconnection()
+{
+    let Deconnection = await API_LogoutUser();
+    if(Deconnection)
+    {
+        loggedUser = undefined;
+        alert("Deconnexion Reussi !")
+        showPosts();
+    }
+}
 /////////////////////// Posts content manipulation ///////////////////////////////////////////////////////
 
 function linefeeds_to_Html_br(selector) {
@@ -490,60 +514,81 @@ async function renderDeletePostForm(id) {
     } else
         showError(Posts_API.currentHttpError);
 }
-function newContact() {
-    contact = {};
-    contact.Id = 0;
-    contact.Name = "";
-    contact.Password = "";
-    contact.Email = "";
-    return contact;
+function newUser() {
+    user = {};
+    user.Id = 0;
+    user.Name = "";
+    user.Password = "";
+    user.Email = "";
+    return user;
 }
 function renderConForm() {
+    $("#viewTitle").text("Connexion");
     $("#form").show();
     $("#form").empty();
     $("#form").append(`
-        <div class="connect">
-        <input 
-                class="form-control Email"
-                name="Email"
-                id="Email"
-                placeholder="Courriel"
-        />
-        </div>
-        <div class="connect">
-        <input
-                class="form-control Alpha"
-                name="Password"
-                id="Password"
-                placeholder="Mot de passe"
-        />
-        </div>
-        <input type="submit" value="Enregistrer" id="saveContact" class="btn btn-primary">
-        <div class="dropdown-divider"></div>
-        <input type="button" value="Inscription" id="Login" class="btn btn-secondary">
+        <form class="form" id="loginForm">
+            <div class='containerLog'>
+                <label for="Email" class="form-label">Courriel</label>
+                <input 
+                    class="form-control Email"
+                    name="Email"
+                    id="Email"
+                    placeholder="Courriel"
+                    required
+                    RequireMessage="Veuillez entrer votre courriel" 
+                />
+            </div>
+
+            <div class='containerLog'>
+                <label for="Password" class="form-label">Mot de passe</label>
+                <input
+                    class="form-control Alpha"
+                    name="Password"
+                    id="Password"
+                    placeholder="Mot de passe"
+                    type="password"  <!-- Hide password text -->
+            </div>
+
+            <input type="submit" value="Se connecter" id="loginUser" class="btn btn-primary">
+            <div class="dropdown-divider"></div>
+            <input type="button" value="Inscription" id="registerButton" class="btn btn-secondary">
+        </form>
     `);
 
-    initImageUploaders();
-    initFormValidation();
+    initFormValidation(); 
 
-
-    $('#Login').on("click", async function () {
-        await showLoginCmdForm();
+    $('#registerButton').on("click", async function () {
+        await renderRegisterForm();  
     });
+
+    $('#loginForm').on("submit", async function (event) {
+        event.preventDefault(); 
+        let loginInfo = getFormData($("#loginForm"));
+        let result = await API_LoginUser(loginInfo);
+        if (result && result.User) {
+            loggedUser = result.User;  
+    
+            showPosts();
+        } else {
+            renderError("Identifiants incorrects. Veuillez vérifier votre email et mot de passe.");
+        }
+    });
+    
 }
 
-function renderLoginForm(contact = null) {
-    let create = contact == null;
+function renderRegisterForm(user = null) {
+    let create = user == null;
     if (create) {
-        contact = newContact();
-        contact.Avatar = "no-avatar.png";
+        user = newUser();
+        user.Avatar = "no-avatar.png";
     }
     $("#viewTitle").text(create ? "Inscription" : "Modification");
     $("#form").show();
     $("#form").empty();
     $("#form").append(`
-            <form class="form" id="contactForm">
-            <input type="hidden" name="Id" value="${contact.Id}"/>
+            <form class="form" id="userForm">
+            <input type="hidden" name="Id" value="${user.Id}"/>
             <div class='containerLog'>
 
             <label for="Email" class="form-label"> Courriel </label>
@@ -555,7 +600,7 @@ function renderLoginForm(contact = null) {
                 required
                 RequireMessage="Veuillez entrer votre courriel" 
                 InvalidMessage="Veuillez entrer un courriel valide"
-                value="${contact.Email}"
+                value="${user.Email}"
             />
             <input 
                 class="form-control Email"
@@ -565,7 +610,7 @@ function renderLoginForm(contact = null) {
                 required
                 RequireMessage="Veuillez entrer votre courriel" 
                 InvalidMessage="Le courriel entrer ne correpond pas"
-                value="${contact.Email}"
+                value="${user.Email}"
             />
             </div>
 
@@ -577,10 +622,11 @@ function renderLoginForm(contact = null) {
                 name="Password"
                 id="Password"
                 placeholder="Mot de passe"
+                type="password"
                 required
                 RequireMessage="Veuillez entrer votre Mot de passe" 
                 InvalidMessage="Veuillez entrer un Mot de passe valide"
-                value="${contact.Password}" 
+                value="${user.Password}" 
             />
             <input
                 class="form-control Alpha"
@@ -590,7 +636,7 @@ function renderLoginForm(contact = null) {
                 required
                 RequireMessage="Veuillez entrer votre Mot de passe" 
                 InvalidMessage="Le Mot de passe entrer ne correpond pas"
-                value="${contact.Password}" 
+                value="${user.Password}" 
             />
             </div>
 
@@ -605,7 +651,7 @@ function renderLoginForm(contact = null) {
                 required
                 RequireMessage="Veuillez entrer un nom"
                 InvalidMessage="Le nom comporte un caractère illégal" 
-                value="${contact.Name}"
+                value="${user.Name}"
             />
             </div>
 
@@ -614,11 +660,11 @@ function renderLoginForm(contact = null) {
             <div   class='imageUploader' 
                    newImage='${create}' 
                    controlId='Avatar' 
-                   imageSrc='${contact.Avatar}' 
+                   imageSrc='${user.Avatar}' 
                    waitingImage="Loading_icon.gif">
             </div>
             <hr>
-            <input type="submit" value="Enregistrer" id="saveContact" class="btn btn-primary">
+            <input type="submit" value="Enregistrer" id="saveUser" class="btn btn-primary">
             <input type="button" value="Annuler" id="cancel" class="btn btn-secondary">
         </form>
     `);
@@ -627,30 +673,24 @@ function renderLoginForm(contact = null) {
     initImageUploaders();
     initFormValidation();
 
-    $("#commit").click(function () {
-        $("#commit").off();
-        return $('#savePost').trigger("click");
-    });
-    $('#postForm').on("submit", async function (event) {
+    $('#userForm').on("submit", async function (event) {
         event.preventDefault();
-        let post = getFormData($("#postForm"));
-        if (post.Category != selectedCategory)
-            selectedCategory = "";
-        if (create || !('keepDate' in post))
-            post.Date = Local_to_UTC(Date.now());
-        delete post.keepDate;
-        post = await Posts_API.Save(post, create);
-        if (!Posts_API.error) {
-            await showPosts();
-            postsPanel.scrollToElem(post.Id);
+        let user = getFormData($("#userForm"));
+        //showWaitingGif();
+        let result = await API_RegisterUser(user, create);
+        if (result)
+        {
+            console.log("aaaaa");
+            renderPosts();
         }
         else
-            showError("Une erreur est survenue! ", Posts_API.currentHttpError);
+            renderError("Une erreur est survenue! " + API_getcurrentHttpError());
     });
-    $('#cancel').on("click", async function () {
-        await showPosts();
+    $('#cancel').on("click", function () {
+        renderPosts();
     });
 }
+
 function newPost() {
     let Post = {};
     Post.Id = 0;

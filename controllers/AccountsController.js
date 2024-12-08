@@ -116,25 +116,31 @@ export default class AccountsController extends Controller {
 
     // POST: account/register body payload[{"Id": 0, "Name": "...", "Email": "...", "Password": "..."}]
     register(user) {
-        if (this.repository != null) {
-            user.Created = utilities.nowInSeconds();
-            let verifyCode = utilities.makeVerifyCode(6);
-            user.VerifyCode = verifyCode;
-            user.Authorizations = AccessControl.user();
-            let newUser = this.repository.add(user);
-            if (this.repository.model.state.isValid) {
-                this.HttpContext.response.created(newUser);
-                newUser.Verifycode = verifyCode;
-                this.sendVerificationEmail(newUser);
-            } else {
-                if (this.repository.model.state.inConflict)
-                    this.HttpContext.response.conflict(this.repository.model.state.errors);
-                else
-                    this.HttpContext.response.badRequest(this.repository.model.state.errors);
-            }
-        } else
-            this.HttpContext.response.notImplemented();
+        const requiredAuthorization = AccessControl.anonymous();
+        if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
+            if (this.repository != null) {
+                user.Created = utilities.nowInSeconds();
+                let verifyCode = utilities.makeVerifyCode(6);
+                user.VerifyCode = verifyCode;
+                user.Authorizations = AccessControl.user();
+                let newUser = this.repository.add(user);
+                if (this.repository.model.state.isValid) {
+                    this.HttpContext.response.created(newUser);
+                    newUser.VerifyCode = verifyCode; 
+                    this.sendVerificationEmail(newUser);
+                } else {
+                    if (this.repository.model.state.inConflict)
+                        this.HttpContext.response.conflict(this.repository.model.state.errors);
+                    else
+                        this.HttpContext.response.badRequest(this.repository.model.state.errors);
+                }
+            } else
+                this.HttpContext.response.notImplemented();
+        } else {
+            this.HttpContext.response.unAuthorized("Unauthorized access");
+        }
     }
+    
     promote(user) {
         if (this.repository != null) {
             let foundUser = this.repository.findByField("Id", user.Id);

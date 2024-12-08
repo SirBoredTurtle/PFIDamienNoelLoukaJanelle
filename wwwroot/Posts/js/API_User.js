@@ -1,47 +1,58 @@
 //const API_URL = "https://api-server-5.glitch.me/api/contacts";
-const API_URL = "http://localhost:5000/api/user";
+const API_URL = "http://localhost:5000/api/Accounts";
 let currentHttpError = "";
 
 function API_getcurrentHttpError () {
     return currentHttpError; 
 }
-function API_GetUser() {
+
+function API_RegisterUser(user) {
     return new Promise(resolve => {
         $.ajax({
-            url: API_URL,
-            success: users => { currentHttpError = ""; resolve(users); },
-            error: (xhr) => { console.log(xhr); resolve(null); }
-        });
-    });
-}
-function API_GetUser(userId) {
-    return new Promise(resolve => {
-        $.ajax({
-            url: API_URL + "/" + userId,
-            success: user => { currentHttpError = ""; resolve(user); },
-            error: (xhr) => { currentHttpError = xhr.responseJSON.error_description; resolve(null); }
-        });
-    });
-}
-function API_SaveUser(user, create) {
-    return new Promise(resolve => {
-        $.ajax({
-            url: create ? API_URL :  API_URL + "/" + user.Id,
-            type: create ? "POST" : "PUT",
-            contentType: 'application/json',
+            url: `${API_URL}/register`, 
+            method: "POST",
+            contentType: "application/json",
             data: JSON.stringify(user),
-            success: (/*data*/) => { currentHttpError = ""; resolve(true); },
-            error: (xhr) => {currentHttpError = xhr.responseJSON.error_description; resolve(false /*xhr.status*/); }
+            success: (response) => {
+                currentHttpError = "";
+                resolve(response);
+            },
+            error: (xhr) => {
+                console.error(xhr);
+                resolve(null);
+            }
         });
     });
 }
-function API_DeleteUser(id) {
-    return new Promise(resolve => {
-        $.ajax({
-            url: API_URL + "/" + id,
-            type: "DELETE",
-            success: () => { currentHttpError = ""; resolve(true); },
-            error: (xhr) => { currentHttpError = xhr.responseJSON.error_description; resolve(false /*xhr.status*/); }
+
+async function API_LoginUser(loginInfo) {
+    try {
+        let response = await $.ajax({
+            url: `${API_URL}/login`, 
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(loginInfo)
         });
-    });
+
+        return response;
+    } catch (error) {
+        console.error("Login failed:", error);
+        return null;  
+    }
 }
+
+async function API_LogoutUser() {
+    try {
+        let response = await $.ajax({
+            url: `${API_URL}/logout`, 
+            method: "POST",
+            contentType: "application/json",
+        });
+
+        return response;
+    } catch (error) {
+        return null;  
+    }
+}
+
+
