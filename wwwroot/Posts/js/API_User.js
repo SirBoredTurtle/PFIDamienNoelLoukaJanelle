@@ -41,18 +41,21 @@ async function API_LoginUser(loginInfo) {
     }
 }
 
-async function API_LogoutUser() {
+async function API_LogoutUser(loggeduser) {
     try {
+        console.log("Sending logout request..."); 
         let response = await $.ajax({
             url: `${API_URL}/logout`, 
             method: "POST",
             contentType: "application/json",
+            data: JSON.stringify(loggeduser)
         });
-
         return response;
     } catch (error) {
+        console.log("Error:", error);
         return null;  
     }
 }
+
 
 

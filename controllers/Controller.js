@@ -55,7 +55,16 @@ export default class Controller {
             } else {
                 this.HttpContext.response.unAuthorized("Unauthorized access");
             }
-        } 
+        }else if (route === "logout")
+            {
+                const requiredAuthorization = AccessControl.anonymous();
+                if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
+                    this.logout(data.Id);
+                } else {
+                    this.HttpContext.response.unAuthorized("Unauthorized access");
+                }
+            }  
+
         else {
             if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
                 super.post(data);

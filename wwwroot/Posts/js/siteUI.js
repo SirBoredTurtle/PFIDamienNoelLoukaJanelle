@@ -121,11 +121,20 @@ function hidePosts() {
     $('#menu').hide();
     periodic_Refresh_paused = true;
 }
+
 function showForm() {
     hidePosts();
     $('#form').show();
     $('#commit').show();
     $('#abort').show();
+    $('#loginForm').hide();
+}
+
+// This is your function for showing the verification form
+function showverifyForm() {
+    showForm();
+    $("#viewTitle").text("Verification");
+    renderVerifyForm();
 }
 function showFormCompte() {
     hidePosts();
@@ -403,11 +412,10 @@ function removeWaitingGif() {
 }
 async function Deconnection()
 {
-    let Deconnection = await API_LogoutUser();
-    if(Deconnection)
+    let Deconnection = await API_LogoutUser(loggedUser);
+    if(Deconnection == "")
     {
         loggedUser = undefined;
-        alert("Deconnexion Reussi !")
         showPosts();
     }
 }
@@ -460,6 +468,37 @@ function highlightKeywords() {
 }
 
 //////////////////////// Forms rendering /////////////////////////////////////////////////////////////////
+
+async function renderVerifyForm() {
+    let formHtml = `
+        <div class="verifyForm">
+            <div class="formHeader">Verification</div>
+            <div class="formText">Un Code de verification a ete envoye a votre courriel:</div>
+            <input type="text" id="verifyCode" class="formInput" placeholder="Enter Verification Code" />
+        </div>
+    `;
+    $("#form").append(formHtml);
+
+    $('#verifyButton').on("click", async function () {
+        let verifyCode = $("#verifyCode").val().trim();
+        if (verifyCode) {
+            let response = await API_verify(loggedUser, verifyCode);
+            if (!API_verify.error) {
+                showSuccess("Verification successful!");
+            } else {
+                console.log(API_verify.currentHttpError);
+                showError("Invalid verification code or error occurred.");
+            }
+        } else {
+            showError("Please enter a valid verification code.");
+        }
+    });
+
+    $('#cancelButton').on("click", async function () {
+        showPosts(); 
+    });
+}
+
 
 async function renderEditPostForm(id) {
     $('#commit').show();
@@ -568,8 +607,15 @@ function renderConForm() {
         let result = await API_LoginUser(loginInfo);
         if (result && result.User) {
             loggedUser = result.User;  
-    
-            showPosts();
+            if(loggedUser.verifyCode !="verified")
+            {
+                showverifyForm()
+            }
+            else
+            {
+                showPosts();
+            }
+            
         } else {
             renderError("Identifiants incorrects. Veuillez vérifier votre email et mot de passe.");
         }
@@ -708,6 +754,8 @@ function renderPostForm(post = null) {
     $("#form").append(`
         <form class="form" id="postForm">
             <input type="hidden" name="Id" value="${post.Id}"/>
+            <input type="hidden" name="Id" value="${loggedUser.Id}"/>
+
              <input type="hidden" name="Date" value="${post.Date}"/>
             <label for="Category" class="form-label">Catégorie </label>
             <input 
