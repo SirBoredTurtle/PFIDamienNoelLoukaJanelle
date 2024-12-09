@@ -16,12 +16,11 @@ let waiting = null;
 let showKeywords = false;
 let keywordsOnchangeTimger = null;
 let loggedUser;
-let VerifyId;
 let Likes = [];
 
 Init_UI();
 async function Init_UI() {
-    loggedUser = undefined;
+    ResetLoggedUser();
     postsPanel = new PageManager('postsScrollPanel', 'postsPanel', 'postSample', renderPosts);
     $('#createPost').on("click", async function () {
         showCreatePostForm();
@@ -122,7 +121,6 @@ function intialView() {
 async function showPosts(reset = false) {
     if (loggedUser != undefined) {
         if (loggedUser.VerifyCode != "verified") {
-            alert("verify");
             showverifyForm();
         }
         else {
@@ -463,6 +461,7 @@ function removeWaitingGif() {
 async function Deconnection() {
     let Deconnection = await API_LogoutUser(loggedUser);
     if (Deconnection == "") {
+        localStorage.removeItem('loggedUser');
         loggedUser = undefined;
         showPosts();
     }
@@ -533,14 +532,24 @@ async function renderVerifyForm() {
         let verifyCode = $("#verifyCode").val().trim();
         if (verifyCode) {
             let response = await API_verify(loggedUser.Id, verifyCode);
-            if (response) {
-                showPosts()
+            let loggedUserData = localStorage.getItem('loggedUser');
+            if (loggedUserData) {
+                loggedUser = JSON.parse(loggedUserData);
+
+                loggedUser.VerifyCode = 'verified';
+
+                localStorage.setItem('loggedUser', JSON.stringify(loggedUser));
+
+                ResetLoggedUser();
+                showPosts();
+            } else {
+                console.error('No logged user data found.');
             }
+
         }
     });
 
     $('#cancelButton').on("click", async function () {
-        
         Deconnection()
     });
 }
@@ -652,12 +661,14 @@ function renderConForm() {
         event.preventDefault();
         let loginInfo = getFormData($("#loginForm"));
         let result = await API_LoginUser(loginInfo);
+        console.log(result);
         if (result && result.User) {
             loggedUser = result;
             const userToSave = {
                 Id: loggedUser.User.Id,
                 AccessToken: loggedUser.Access_token,
                 Name: loggedUser.User.Name,
+                Password: loginInfo.Password,
                 Email: loggedUser.User.Email,
                 Avatar: loggedUser.User.Avatar,
                 VerifyCode: loggedUser.User.VerifyCode,
@@ -808,9 +819,9 @@ function renderRegisterForm(user = null) {
     if (!create) {
         $('#deleteAccount').on("click", async function () {
             if (confirm("Êtes-vous sûr de vouloir supprimer votre compte?")) {
-                let result = await API_DeleteUser(user.Id, user.AccessToken);
+                let result = await API_RemoveUser(loggedUser.Id, loggedUser.AccessToken);
                 if (result) {
-                    showPosts();
+                    Deconnection();
                 } else {
                     renderError("Impossible de supprimer le compte.");
                 }

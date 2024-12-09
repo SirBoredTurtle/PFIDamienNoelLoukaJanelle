@@ -26,6 +26,10 @@ export default class Controller {
                 this.HttpContext.response.unAuthorized("Unauthorized access");
             }
         } 
+        else if(route === "remove")
+        {
+            this.remove(id);
+        }
         else if (AccessControl.readGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
             if (this.repository != null) {
                 if (id !== '') {

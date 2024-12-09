@@ -110,3 +110,25 @@ function API_verify(id, code) {
     });
 }
 
+async function API_RemoveUser(userId, accessToken) {
+    return new Promise((resolve) => {
+        $.ajax({
+            url: `${API_URL}/remove`,
+            method: "GET", 
+            contentType: "application/json",
+            headers: {
+                'authorization': `Bearer ${accessToken}`
+            },
+            data: { id: userId}, 
+            success: (response) => {
+                currentHttpError = ""; 
+                resolve(response);
+            },
+            error: (xhr) => {
+                console.error("Error deleting user:", xhr);
+                currentHttpError = xhr.responseJSON?.error || "Unknown error occurred.";
+                resolve(null);
+            }
+        });
+    });
+}

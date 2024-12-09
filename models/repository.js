@@ -116,8 +116,8 @@ export default class Repository {
         }
         return object;
     }
-    update(id, object) {
-        let objectToModify = {...object};
+    update(id, object, handleAssets = true) {
+        let objectToModify = {...object}; 
         delete objectToModify.Id;
         if (!this.model.securedId)
             id = parseInt(id);
@@ -128,7 +128,8 @@ export default class Repository {
             if (index > -1) {
                 this.checkConflict(objectToModify);
                 if (!this.model.state.inConflict) {
-                    this.model.handleAssets(objectToModify, this.objectsList[index]);
+                    if (handleAssets)
+                        this.model.handleAssets(objectToModify, this.objectsList[index]);
                     this.objectsList[index] = objectToModify;
                     this.write();
                 }
