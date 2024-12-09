@@ -45,7 +45,7 @@ export default class AccountsController extends Controller {
             this.HttpContext.response.badRequest("Credential Email and password are missing.");
     }
     logout() {
-        let userId = this.HttpContext.payload.User.Id;
+        let userId = this.HttpContext.payload.Id;
         if (userId) {
             TokenManager.logout(userId);
             this.HttpContext.response.ok();
@@ -173,22 +173,26 @@ export default class AccountsController extends Controller {
                 if (existingUser != null) {
                     const updatedUser = {
                         Id: existingUser.Id, 
-                        Authorizations: existingUser.Authorizations,
-                        Created: existingUser.Created, 
+                        Authorizations: existingUser.Authorizations, 
+                        Created: existingUser.Created,
+                        Email: existingUser.Email, 
+                        VerifyCode: existingUser.VerifyCode,
+                        Password: existingUser.Password,
+                        Name: existingUser.Name, 
+                        Avatar: existingUser.Avatar
                     };
     
                     if (user.Email && user.Email !== existingUser.Email) {
                         updatedUser.Email = user.Email;
-                        updatedUser.VerifyCode = utilities.makeVerifyCode(6); 
+                        updatedUser.VerifyCode = utilities.makeVerifyCode(6);
                         this.sendVerificationEmail({ ...updatedUser, VerifyCode: updatedUser.VerifyCode });
-                    } else {
-                        updatedUser.Email = existingUser.Email;
-                        updatedUser.VerifyCode = existingUser.VerifyCode;
                     }
     
-                    updatedUser.Password = user.Password || existingUser.Password; 
-                    updatedUser.Name = user.Name || existingUser.Name; 
-                    updatedUser.Avatar = user.Avatar || existingUser.Avatar; 
+                    if (user.Password) updatedUser.Password = user.Password;
+                    if (user.Name) updatedUser.Name = user.Name;
+                    if (user.Avatar) updatedUser.Avatar = user.Avatar;
+    
+                    delete updatedUser.AccessToken;
     
                     this.repository.update(user.Id, updatedUser);
     

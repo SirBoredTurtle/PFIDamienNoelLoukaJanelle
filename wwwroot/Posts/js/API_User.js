@@ -27,29 +27,24 @@ function API_RegisterUser(user) {
 
 
 async function API_ModifyUser(data) { 
-    const response = await $.ajax({
-        url: `${API_URL}/modify`, 
-        method: "PUT",
-        contentType: "application/json",
-        headers: {
-            'authorization': `Bearer ${data.AccessToken}`
-        },
-        data: JSON.stringify(data),
-        success: (result) => {
-            currentHttpError = "";
-            resolve(response);
-        },
-        error: (xhr) => {
-            console.error(xhr);
-            resolve(null);
-        }
-    });
-
-    return response;
+    console.log(data);
+    try {
+        const response = await $.ajax({
+            url: `${API_URL}/modify`, 
+            method: "PUT",
+            contentType: "application/json",
+            headers: {
+                'authorization': `Bearer ${data.AccessToken}`
+            },
+            data: JSON.stringify(data)
+        });
+        currentHttpError = ""; 
+        return response;
+    } catch (xhr) {
+        currentHttpError = xhr.responseJSON?.message || xhr.statusText || "Unknown error"; 
+        return null;
+    }
 }
-
-
-    
     async function API_LoginUser(loggeduser) {
         return new Promise(resolve => {
             $.ajax({
