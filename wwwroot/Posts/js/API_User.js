@@ -25,37 +25,91 @@ function API_RegisterUser(user) {
     });
 }
 
-async function API_LoginUser(loginInfo) {
-    try {
-        let response = await $.ajax({
-            url: `${API_URL}/login`, 
-            method: "POST",
-            contentType: "application/json",
-            data: JSON.stringify(loginInfo)
-        });
 
-        return response;
-    } catch (error) {
-        console.error("Login failed:", error);
-        return null;  
-    }
+async function API_ModifyUser(data) { 
+    const response = await $.ajax({
+        url: `${API_URL}/modify`, 
+        method: "PUT",
+        contentType: "application/json",
+        headers: {
+            'authorization': `Bearer ${data.AccessToken}`
+        },
+        data: JSON.stringify(data),
+        success: (result) => {
+            currentHttpError = "";
+            resolve(response);
+        },
+        error: (xhr) => {
+            console.error(xhr);
+            resolve(null);
+        }
+    });
+
+    return response;
 }
 
-async function API_LogoutUser(loggeduser) {
-    try {
-        console.log("Sending logout request..."); 
-        let response = await $.ajax({
+
+    
+    async function API_LoginUser(loggeduser) {
+        return new Promise(resolve => {
+            $.ajax({
+                url: `${API_URL}/login`, 
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(loggeduser),
+                success: (response) => {
+                    currentHttpError = "";
+                    
+                    if (response) {
+                        localStorage.setItem('authToken', response);
+                        resolve(response); 
+                    } else {
+                        console.error("Token not found in response");
+                        resolve(null); 
+                    }
+                },
+                error: (xhr) => {
+                    console.error('Login failed:', xhr);
+                    resolve(null);  
+                }
+            });
+        });
+    }
+    
+    
+async function API_LogoutUser(loggininfo) {
+    return new Promise(resolve => {
+        $.ajax({
             url: `${API_URL}/logout`, 
             method: "POST",
             contentType: "application/json",
-            data: JSON.stringify(loggeduser)
+            data: JSON.stringify(loggininfo),
+            success: (response) => {
+                currentHttpError = "";
+                resolve(response);
+            },
+            error: (xhr) => {
+                console.error(xhr);
+                resolve(null);
+            }
         });
-        return response;
-    } catch (error) {
-        console.log("Error:", error);
-        return null;  
-    }
+    });
 }
 
-
+function API_verify(id, code) {
+    const url = `${API_URL}/verify`; 
+    $.ajax({
+        url: url, 
+        type: 'GET', 
+        data: { id: id, code: code }, 
+        success: function(response) {
+            currentHttpError = "";
+            resolve(response);
+        },
+        error: function(xhr) {
+            console.error(xhr);
+            resolve(null);
+        }
+    });
+}
 

@@ -1,4 +1,5 @@
 import AccessControl from '../accessControl.js';
+import TokensManager from '../tokensManager.js';
 
 export default class Controller {
     constructor(HttpContext, repository = null, requiredAuthorizations = null) {
@@ -7,7 +8,7 @@ export default class Controller {
         this.repository = repository;
     }
     head() {
-        if (AccessControl.readGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
+        if (AccessControl.readGranted(this.HttpContext.authoriations, this.requiredAuthorizations)) {
             if (this.repository != null) {
                 this.HttpContext.response.ETag(this.repository.ETag);
             } else
@@ -16,7 +17,17 @@ export default class Controller {
             this.HttpContext.response.unAuthorized("Unauthorized access");
     }
     get(id) {
-        if (AccessControl.readGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
+
+        const route = this.HttpContext.path.id;
+        if (route === "verify") {
+            const requiredAuthorization = AccessControl.anonymous();
+            if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
+                this.verify();
+            } else {
+                this.HttpContext.response.unAuthorized("Unauthorized access");
+            }
+        }
+        else if (AccessControl.readGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
             if (this.repository != null) {
                 if (id !== '') {
                     let data = this.repository.get(id);
@@ -37,7 +48,7 @@ export default class Controller {
             this.HttpContext.response.unAuthorized("Unauthorized access");
     }
 
-    
+
     post(data) {
         const route = this.HttpContext.path.id;
         if (route === "register") {
@@ -47,24 +58,21 @@ export default class Controller {
             } else {
                 this.HttpContext.response.unAuthorized("Unauthorized access");
             }
-        }else if (route === "login")
-        {
+        } else if (route === "login") {
             const requiredAuthorization = AccessControl.anonymous();
             if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
                 this.login(data);
             } else {
                 this.HttpContext.response.unAuthorized("Unauthorized access");
             }
-        }else if (route === "logout")
-            {
-                const requiredAuthorization = AccessControl.anonymous();
-                if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
-                    this.logout(data.Id);
-                } else {
-                    this.HttpContext.response.unAuthorized("Unauthorized access");
-                }
-            }  
-
+        } else if (route === "logout") {
+            const requiredAuthorization = AccessControl.anonymous();
+            if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
+                this.logout(data.Id);
+            } else {
+                this.HttpContext.response.unAuthorized("Unauthorized access");
+            }
+        }
         else {
             if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
                 super.post(data);
@@ -73,8 +81,8 @@ export default class Controller {
             }
         }
     }
-    
-    
+
+
     put(data) {
         if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
             if (this.HttpContext.path.id !== '') {
@@ -93,7 +101,25 @@ export default class Controller {
                 }
             } else
                 this.HttpContext.response.badRequest("The Id of ressource is not specified in the request url.");
-        } else
+        } else if (this.HttpContext.user.Id == data.Id) {
+            if(this.HttpContext.path.id == "modify")
+            {
+                this.modify(data);
+            }
+            else if (this.repository.model.state.isValid) {
+                this.HttpContext.response.accepted(data);
+            } else {
+                if (this.repository.model.state.notFound) {
+                    this.HttpContext.response.notFound(this.repository.model.state.errors);
+                } else {
+                    if (this.repository.model.state.inConflict)
+                        this.HttpContext.response.conflict(this.repository.model.state.errors)
+                    else
+                        this.HttpContext.response.badRequest(this.repository.model.state.errors);
+                }
+            }
+        }
+        else
             this.HttpContext.response.unAuthorized("Unauthorized access");
     }
     remove(id) {

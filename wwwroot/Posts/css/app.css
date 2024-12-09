@@ -231,3 +231,49 @@ label {
 .displayNone {
     display:none;
 }
+
+#verifyButton, #cancelButton {
+    padding: 10px 20px; 
+    font-size: 16px; 
+    border-radius: 8px; 
+    border: none; 
+    cursor: pointer; 
+    transition: background-color 0.3s ease, transform 0.2s ease; 
+}
+
+#verifyButton {
+    background-color: #007bff; 
+    color: white;
+}
+
+#verifyButton:hover {
+    background-color: #0056b3; 
+    transform: scale(1.05);
+}
+
+#cancelButton {
+    background-color: #6c757d; 
+    color: white; 
+}
+
+#cancelButton:hover {
+    background-color: #5a6268; 
+    transform: scale(1.05);
+}
+.userProfile {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+}
+
+.avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.userName {
+    font-weight: bold;
+    margin-left: 10px;
+}

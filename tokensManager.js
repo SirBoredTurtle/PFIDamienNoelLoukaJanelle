@@ -1,4 +1,3 @@
-
 import * as utilities from './utilities.js';
 import * as ServerVariables from "./serverVariables.js";
 import crypto from 'crypto';
@@ -103,5 +102,3 @@ export default
         return null;
     }
 }
-
-

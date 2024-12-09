@@ -44,7 +44,8 @@ export default class AccountsController extends Controller {
         } else
             this.HttpContext.response.badRequest("Credential Email and password are missing.");
     }
-    logout(userId) {
+    logout() {
+        let userId = this.HttpContext.payload.User.Id;
         if (userId) {
             TokenManager.logout(userId);
             this.HttpContext.response.ok();
@@ -84,7 +85,7 @@ export default class AccountsController extends Controller {
                     userFound.VerifyCode = "verified";
                     this.repository.update(userFound.Id, userFound);
                     if (this.repository.model.state.isValid) {
-                        userFound = this.repository.get(userFound.Id); // get data binded record
+                        userFound = this.repository.get(userFound.Id); 
                         this.HttpContext.response.JSON(userFound);
                         this.sendConfirmedEmail(userFound);
                     } else {
@@ -115,31 +116,25 @@ export default class AccountsController extends Controller {
 
     // POST: account/register body payload[{"Id": 0, "Name": "...", "Email": "...", "Password": "..."}]
     register(user) {
-        const requiredAuthorization = AccessControl.anonymous();
-        if (AccessControl.writeGranted(this.HttpContext.authorizations, requiredAuthorization)) {
-            if (this.repository != null) {
-                user.Created = utilities.nowInSeconds();
-                let verifyCode = utilities.makeVerifyCode(6);
-                user.VerifyCode = verifyCode;
-                user.Authorizations = AccessControl.user();
-                let newUser = this.repository.add(user);
-                if (this.repository.model.state.isValid) {
-                    this.HttpContext.response.created(newUser);
-                    newUser.VerifyCode = verifyCode; 
-                    this.sendVerificationEmail(newUser);
-                } else {
-                    if (this.repository.model.state.inConflict)
-                        this.HttpContext.response.conflict(this.repository.model.state.errors);
-                    else
-                        this.HttpContext.response.badRequest(this.repository.model.state.errors);
-                }
-            } else
-                this.HttpContext.response.notImplemented();
-        } else {
-            this.HttpContext.response.unAuthorized("Unauthorized access");
-        }
+        if (this.repository != null) {
+            user.Created = utilities.nowInSeconds();
+            let verifyCode = utilities.makeVerifyCode(6);
+            user.VerifyCode = verifyCode;
+            user.Authorizations = AccessControl.user();
+            let newUser = this.repository.add(user);
+            if (this.repository.model.state.isValid) {
+                this.HttpContext.response.created(newUser);
+                newUser.Verifycode = verifyCode;
+                this.sendVerificationEmail(newUser);
+            } else {
+                if (this.repository.model.state.inConflict)
+                    this.HttpContext.response.conflict(this.repository.model.state.errors);
+                else
+                    this.HttpContext.response.badRequest(this.repository.model.state.errors);
+            }
+        } else
+            this.HttpContext.response.notImplemented();
     }
-    
     promote(user) {
         if (this.repository != null) {
             let foundUser = this.repository.findByField("Id", user.Id);
@@ -168,45 +163,54 @@ export default class AccountsController extends Controller {
         } else
             this.HttpContext.response.notImplemented();
     }
+
+
     // PUT:account/modify body payload[{"Id": 0, "Name": "...", "Email": "...", "Password": "..."}]
     modify(user) {
-        // empty asset members imply no change and there values will be taken from the stored record
         if (AccessControl.writeGranted(this.HttpContext.authorizations, AccessControl.user())) {
             if (this.repository != null) {
-                user.Created = utilities.nowInSeconds();
-                let foundedUser = this.repository.findByField("Id", user.Id);
-                if (foundedUser != null) {
-                    user.Authorizations = foundedUser.Authorizations; // user cannot change its own authorizations
-                    if (user.Password == '') { // password not changed
-                        user.Password = foundedUser.Password;
-                    }
-                    user.Authorizations = foundedUser.Authorizations;
-                    if (user.Email != foundedUser.Email) {
-                        user.VerifyCode = utilities.makeVerifyCode(6);
-                        this.sendVerificationEmail(user);
+                let existingUser = this.repository.findByField("Id", user.Id);
+                if (existingUser != null) {
+                    const updatedUser = {
+                        Id: existingUser.Id, 
+                        Authorizations: existingUser.Authorizations,
+                        Created: existingUser.Created, 
+                    };
+    
+                    if (user.Email && user.Email !== existingUser.Email) {
+                        updatedUser.Email = user.Email;
+                        updatedUser.VerifyCode = utilities.makeVerifyCode(6); 
+                        this.sendVerificationEmail({ ...updatedUser, VerifyCode: updatedUser.VerifyCode });
                     } else {
-                        user.VerifyCode = foundedUser.VerifyCode;
+                        updatedUser.Email = existingUser.Email;
+                        updatedUser.VerifyCode = existingUser.VerifyCode;
                     }
-                    this.repository.update(user.Id, user);
-                    let updatedUser = this.repository.get(user.Id); // must get record user.id with binded data
-
+    
+                    updatedUser.Password = user.Password || existingUser.Password; 
+                    updatedUser.Name = user.Name || existingUser.Name; 
+                    updatedUser.Avatar = user.Avatar || existingUser.Avatar; 
+    
+                    this.repository.update(user.Id, updatedUser);
+    
+                    let result = this.repository.get(user.Id);
                     if (this.repository.model.state.isValid) {
-                        this.HttpContext.response.JSON(updatedUser, this.repository.ETag);
+                        delete result.AccessToken; 
+                        this.HttpContext.response.JSON(result, this.repository.ETag);
+                    } else {
+                        this.HttpContext.response.badRequest(this.repository.model.state.errors);
                     }
-                    else {
-                        if (this.repository.model.state.inConflict)
-                            this.HttpContext.response.conflict(this.repository.model.state.errors);
-                        else
-                            this.HttpContext.response.badRequest(this.repository.model.state.errors);
-                    }
-                } else
-                    this.HttpContext.response.notFound();
-            } else
+                } else {
+                    this.HttpContext.response.notFound("User not found.");
+                }
+            } else {
                 this.HttpContext.response.notImplemented();
-        } else
-            this.HttpContext.response.unAuthorized();
+            }
+        } else {
+            this.HttpContext.response.unAuthorized("Unauthorized access.");
+        }
     }
-
+    
+    
     // GET:account/remove/id
     remove(id) { // warning! this is not an API endpoint 
         // todo make sure that the requester has legitimity to delete ethier itself or its an admin

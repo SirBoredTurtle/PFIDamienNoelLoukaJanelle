@@ -49,15 +49,16 @@ export default class AccessControl {
     }
     static writeGrantedAdminOrOwner(HttpContext, requiredAccess, id) {
         if (requiredAccess) {
-            if (requiredAccess.writeAccess == 0) return true;
-            if (HttpContext.user && HttpContext.authorizations)
-                return (
-                    authorizations.writeAccess >= requiredAccess.writeAccess ||
-                    HttpContext.user.Id == id
-                );
-            else
-                return false;
+            if (requiredAccess.writeAccess === 0) return true; // No special access required
+            if (HttpContext.user) {
+                const isOwner = HttpContext.user.Id === id; // Check if user owns the resource
+                const hasWriteAccess = HttpContext.authorizations?.writeAccess >= requiredAccess.writeAccess;
+    
+                return isOwner || hasWriteAccess;
+            }
+            return false; // No user logged in or invalid token
         }
-        return true;
+        return true; // No access control required
     }
+    
 }

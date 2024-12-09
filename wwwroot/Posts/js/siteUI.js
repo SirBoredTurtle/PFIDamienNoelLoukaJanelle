@@ -17,6 +17,7 @@ let waiting = null;
 let showKeywords = false;
 let keywordsOnchangeTimger = null;
 let loggedUser;
+let access_token;
 let Likes = [];
 
 Init_UI();
@@ -38,6 +39,9 @@ async function Init_UI() {
         toogleShowKeywords();
         showPosts();
     });
+
+    
+
 
     installKeywordsOnkeyupEvent();
     await showPosts();
@@ -130,12 +134,12 @@ function showForm() {
     $('#loginForm').hide();
 }
 
-// This is your function for showing the verification form
 function showverifyForm() {
     showForm();
     $("#viewTitle").text("Verification");
     renderVerifyForm();
 }
+
 function showFormCompte() {
     hidePosts();
     $('#form').show();
@@ -313,6 +317,23 @@ function updateDropDownMenu() {
     let DDMenu = $("#DDMenu");
     let selectClass = selectedCategory === "" ? "fa-check" : "fa-fw";
     DDMenu.empty();
+    if (loggedUser) {
+        DDMenu.append($(`
+            <div class="dropdown-item userProfile">
+                <img class="avatar mx-2" src="${loggedUser.User.Avatar}" alt="Avatar">
+                <span class="userName">${loggedUser.User.Name}</span>
+            </div>
+        `));
+        DDMenu.append($(`<div class="dropdown-divider"></div>`)); 
+
+        DDMenu.append($(`
+            <div class="dropdown-item menuItemLayout" id="editProfileCmd">
+                <i class="menuIcon fa fa-user-edit mx-2"></i> Modifier profile
+            </div>
+        `));
+        DDMenu.append($(`<div class="dropdown-divider"></div>`));
+    }
+
     if(!loggedUser)
     {
     DDMenu.append($(`
@@ -355,16 +376,22 @@ function updateDropDownMenu() {
         showAbout();
     });
     $('#ConnectionCmd').on("click", function () {
+        showFormCompte();
         showConCmdForm();
     });
     $('#DeconnectionCmd').on("click", function () {
         Deconnection();
+    });
+    $('#editProfileCmd').on("click", function () {
+        showFormCompte();
+        renderRegisterForm(loggedUser);
     });
     $('#allCatCmd').on("click", async function () {
         selectedCategory = "";
         await showPosts(true);
         updateDropDownMenu();
     });
+    
     $('.category').on("click", async function () {
         selectedCategory = $(this).text().trim();
         await showPosts(true);
@@ -473,8 +500,10 @@ async function renderVerifyForm() {
     let formHtml = `
         <div class="verifyForm">
             <div class="formHeader">Verification</div>
-            <div class="formText">Un Code de verification a ete envoye a votre courriel:</div>
+            <div class="formText">A verification code has been sent to your email. Please enter it below:</div>
             <input type="text" id="verifyCode" class="formInput" placeholder="Enter Verification Code" />
+            <button id="verifyButton" class="formButton">Verify</button>
+            <button id="cancelButton" class="formButton">Cancel</button>
         </div>
     `;
     $("#form").append(formHtml);
@@ -482,20 +511,17 @@ async function renderVerifyForm() {
     $('#verifyButton').on("click", async function () {
         let verifyCode = $("#verifyCode").val().trim();
         if (verifyCode) {
-            let response = await API_verify(loggedUser, verifyCode);
-            if (!API_verify.error) {
-                showSuccess("Verification successful!");
-            } else {
-                console.log(API_verify.currentHttpError);
-                showError("Invalid verification code or error occurred.");
-            }
+            let response = await API_verify(loggedUser.User.Id, verifyCode);
+            if (response) {
+                showPosts()
+            } 
         } else {
             showError("Please enter a valid verification code.");
         }
     });
 
     $('#cancelButton').on("click", async function () {
-        showPosts(); 
+        showPosts(); // Assuming you want to return to the list of posts
     });
 }
 
@@ -600,26 +626,27 @@ function renderConForm() {
     $('#registerButton').on("click", async function () {
         await renderRegisterForm();  
     });
-
     $('#loginForm').on("submit", async function (event) {
         event.preventDefault(); 
         let loginInfo = getFormData($("#loginForm"));
-        let result = await API_LoginUser(loginInfo);
+        let result = await API_LoginUser(loginInfo);            
         if (result && result.User) {
-            loggedUser = result.User;  
-            if(loggedUser.verifyCode !="verified")
-            {
-                showverifyForm()
+            loggedUser = result;
+
+            if (result.Token) {
+                localStorage.setItem('authToken', result.Token);
             }
-            else
-            {
+
+            if(loggedUser.User.VerifyCode != "verified") {
+                showverifyForm();
+            } else {
                 showPosts();
             }
-            
         } else {
-            renderError("Identifiants incorrects. Veuillez vérifier votre email et mot de passe.");
+            RenderError("Identifiants incorrects. Veuillez vérifier votre email et mot de passe.");
         }
     });
+    
     
 }
 
@@ -633,109 +660,115 @@ function renderRegisterForm(user = null) {
     $("#form").show();
     $("#form").empty();
     $("#form").append(`
-            <form class="form" id="userForm">
-            <input type="hidden" name="Id" value="${user.Id}"/>
+        <form class="form" id="userForm">
+            <input type="hidden" name="Id" value="${user.User.Id}"/>
+            <input type="hidden" name="AccessToken" value="${user.Access_token}"/>
+            <input type="hidden" name="Created" value="${user.User.Created}"/>
+            <input type="hidden" name="VerifyCode" value="${user.User.VerifyCode}"/>
+            <input type="hidden" name="Authorizations" value="${user.User.Authorizations}"/>
+    
             <div class='containerLog'>
-
-            <label for="Email" class="form-label"> Courriel </label>
-            <input 
-                class="form-control Email"
-                name="Email"
-                id="Email"
-                placeholder="Courriel"
-                required
-                RequireMessage="Veuillez entrer votre courriel" 
-                InvalidMessage="Veuillez entrer un courriel valide"
-                value="${user.Email}"
-            />
-            <input 
-                class="form-control Email"
-                name="Email"
-                id="Email"
-                placeholder="Vérification"
-                required
-                RequireMessage="Veuillez entrer votre courriel" 
-                InvalidMessage="Le courriel entrer ne correpond pas"
-                value="${user.Email}"
-            />
+                <label for="Email" class="form-label"> Courriel </label>
+                <input 
+                    class="form-control Email"
+                    name="Email"
+                    id="Email"
+                    placeholder="Courriel"
+                    required
+                    value="${user.User.Email}"
+                />
+                <input 
+                    class="form-control Email"
+                    name="EmailVerification"
+                    id="EmailVerification"
+                    placeholder="Vérification"
+                    value="${user.User.Email}"
+                    required
+                />
             </div>
-
+    
             <div class='containerLog'>
-
-            <label for="Password" class="form-label"> Mot de passe </label>
-            <input
-                class="form-control Alpha"
-                name="Password"
-                id="Password"
-                placeholder="Mot de passe"
-                type="password"
-                required
-                RequireMessage="Veuillez entrer votre Mot de passe" 
-                InvalidMessage="Veuillez entrer un Mot de passe valide"
-                value="${user.Password}" 
-            />
-            <input
-                class="form-control Alpha"
-                name="Password"
-                id="Password"
-                placeholder="Vérification"
-                required
-                RequireMessage="Veuillez entrer votre Mot de passe" 
-                InvalidMessage="Le Mot de passe entrer ne correpond pas"
-                value="${user.Password}" 
-            />
+                <label for="Password" class="form-label"> Mot de passe </label>
+                <input
+                    class="form-control Alpha"
+                    name="Password"
+                    id="Password"
+                    placeholder="Mot de passe"
+                    type="password"
+                    value=""
+                />
+                <input
+                    class="form-control Alpha"
+                    name="PasswordVerification"
+                    id="PasswordVerification"
+                    placeholder="Vérification"
+                    type="password"
+                    value=""
+                />
             </div>
-
+    
             <div class='containerLog'>
-
-            <label for="Name" class="form-label">Nom </label>
-            <input 
-                class="form-control Alpha"
-                name="Name" 
-                id="Name" 
-                placeholder="Nom"
-                required
-                RequireMessage="Veuillez entrer un nom"
-                InvalidMessage="Le nom comporte un caractère illégal" 
-                value="${user.Name}"
-            />
+                <label for="Name" class="form-label">Nom </label>
+                <input 
+                    class="form-control Alpha"
+                    name="Name" 
+                    id="Name" 
+                    placeholder="Nom"
+                    value="${user.User.Name}"
+                />
             </div>
-
-            <!-- nécessite le fichier javascript 'imageControl.js' -->
+    
             <label class="form-label">Avatar </label>
-            <div   class='imageUploader' 
-                   newImage='${create}' 
-                   controlId='Avatar' 
-                   imageSrc='${user.Avatar}' 
-                   waitingImage="Loading_icon.gif">
+            <div class='imageUploader' 
+                 newImage='${create}' 
+                 controlId='Avatar' 
+                 imageSrc='${user.User.Avatar}' 
+                 waitingImage="Loading_icon.gif">
             </div>
             <hr>
             <input type="submit" value="Enregistrer" id="saveUser" class="btn btn-primary">
-            <input type="button" value="Annuler" id="cancel" class="btn btn-secondary">
+            <input type="button" value="Supprimer le compte" id="deleteAccount" class="btn btn-danger">
         </form>
     `);
-    if (create) $("#keepDateControl").hide();
-
     initImageUploaders();
     initFormValidation();
-
+    
     $('#userForm').on("submit", async function (event) {
         event.preventDefault();
         let user = getFormData($("#userForm"));
-        //showWaitingGif();
-        let result = await API_RegisterUser(user, create);
-        if (result)
-        {
-            console.log("aaaaa");
-            renderPosts();
+        if (user.Email !== user.EmailVerification) {
+            renderError("Les emails ne correspondent pas.");
+            return;
         }
-        else
+        if (user.Password !== user.PasswordVerification) {
+            renderError("Les mots de passe ne correspondent pas.");
+            return;
+        }
+        delete user.EmailVerification;
+        delete user.PasswordVerification;
+    
+        let result = create ? await API_RegisterUser(user) : await API_ModifyUser(user);
+        console.log(result);
+
+        if (result) {
+            renderPosts();
+        } else {
             renderError("Une erreur est survenue! " + API_getcurrentHttpError());
+        }
     });
-    $('#cancel').on("click", function () {
-        renderPosts();
-    });
+    
+    $('#deleteAccount').on("click", async function () {
+        if (confirm("Êtes-vous sûr de vouloir supprimer votre compte?")) {
+            let result = await API_DeleteUser(user.User.Id, user.Access_token);
+            if (result) {
+                showPosts()
+            } else {
+                renderError("Impossible de supprimer le compte.");
+            }
+        }
+    });  
 }
+
 
 function newPost() {
     let Post = {};
@@ -754,7 +787,7 @@ function renderPostForm(post = null) {
     $("#form").append(`
         <form class="form" id="postForm">
             <input type="hidden" name="Id" value="${post.Id}"/>
-            <input type="hidden" name="Id" value="${loggedUser.Id}"/>
+            <input type="hidden" name="Id" value="${loggedUser.User.Id}"/>
 
              <input type="hidden" name="Date" value="${post.Date}"/>
             <label for="Category" class="form-label">Catégorie </label>
