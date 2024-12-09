@@ -14,6 +14,10 @@ export default class AccountsController extends Controller {
         if (id != '') {
             if (AccessControl.readGranted(this.HttpContext.authorizations, AccessControl.admin()))
                 this.HttpContext.response.JSON(this.repository.get(id));
+            else if(id == this.HttpContext.user.id)
+            {
+                this.HttpContext.response.JSON(this.repository.get(id));
+            }
             else
                 this.HttpContext.response.unAuthorized("Unauthorized access");
         }
@@ -83,6 +87,7 @@ export default class AccountsController extends Controller {
             if (userFound) {
                 if (userFound.VerifyCode == code) {
                     userFound.VerifyCode = "verified";
+                    userFound.Avatar = "";
                     this.repository.update(userFound.Id, userFound);
                     if (this.repository.model.state.isValid) {
                         userFound = this.repository.get(userFound.Id); 
@@ -191,7 +196,11 @@ export default class AccountsController extends Controller {
                     if (user.Password) updatedUser.Password = user.Password;
                     if (user.Name) updatedUser.Name = user.Name;
                     if (user.Avatar) updatedUser.Avatar = user.Avatar;
-    
+                    if(user.Avatar == "")
+                    {
+                        updatedUser.Avatar = "";
+                    }
+
                     delete updatedUser.AccessToken;
     
                     this.repository.update(user.Id, updatedUser);

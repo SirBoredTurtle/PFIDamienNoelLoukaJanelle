@@ -17,7 +17,6 @@ export default class Controller {
             this.HttpContext.response.unAuthorized("Unauthorized access");
     }
     get(id) {
-
         const route = this.HttpContext.path.id;
         if (route === "verify") {
             const requiredAuthorization = AccessControl.anonymous();
@@ -26,7 +25,7 @@ export default class Controller {
             } else {
                 this.HttpContext.response.unAuthorized("Unauthorized access");
             }
-        }
+        } 
         else if (AccessControl.readGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
             if (this.repository != null) {
                 if (id !== '') {

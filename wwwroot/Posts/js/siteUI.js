@@ -16,15 +16,12 @@ let waiting = null;
 let showKeywords = false;
 let keywordsOnchangeTimger = null;
 let loggedUser;
+let VerifyId;
 let Likes = [];
 
 Init_UI();
 async function Init_UI() {
-    const loggedUserData = localStorage.getItem('loggedUser');
-    if (loggedUserData) {
-        loggedUser = JSON.parse(loggedUserData);
-        console.log("Logged in user:", loggedUser);
-    }
+    loggedUser = undefined;
     postsPanel = new PageManager('postsScrollPanel', 'postsPanel', 'postSample', renderPosts);
     $('#createPost').on("click", async function () {
         showCreatePostForm();
@@ -43,7 +40,7 @@ async function Init_UI() {
         showPosts();
     });
 
-    
+
 
 
     installKeywordsOnkeyupEvent();
@@ -53,6 +50,13 @@ async function Init_UI() {
 
 /////////////////////////// Search keywords UI //////////////////////////////////////////////////////////
 
+function ResetLoggedUser() {
+    const loggedUserData = localStorage.getItem('loggedUser');
+    if (loggedUserData) {
+        loggedUser = JSON.parse(loggedUserData);
+    }
+    console.log(loggedUser);
+}
 function installKeywordsOnkeyupEvent() {
     $("#searchKeys").on('keyup', function () {
         clearTimeout(keywordsOnchangeTimger);
@@ -116,10 +120,26 @@ function intialView() {
     showSearchIcon();
 }
 async function showPosts(reset = false) {
-    intialView();
-    $("#viewTitle").text("Fil de nouvelles");
-    periodic_Refresh_paused = false;
-    await postsPanel.show(reset);
+    if (loggedUser != undefined) {
+        if (loggedUser.VerifyCode != "verified") {
+            alert("verify");
+            showverifyForm();
+        }
+        else {
+            intialView();
+            $("#viewTitle").text("Fil de nouvelles");
+            periodic_Refresh_paused = false;
+            await postsPanel.show(reset);
+        }
+    }
+    else {
+        intialView();
+        $("#viewTitle").text("Fil de nouvelles");
+        periodic_Refresh_paused = false;
+        await postsPanel.show(reset);
+    }
+
+
 }
 function hidePosts() {
     postsPanel.hide();
@@ -139,6 +159,8 @@ function showForm() {
 
 function showverifyForm() {
     showForm();
+    $('#commit').hide();
+    $('#abort').hide();
     $("#viewTitle").text("Verification");
     renderVerifyForm();
 }
@@ -327,7 +349,7 @@ function updateDropDownMenu() {
                 <span class="userName">${loggedUser.Name}</span>
             </div>
         `));
-        DDMenu.append($(`<div class="dropdown-divider"></div>`)); 
+        DDMenu.append($(`<div class="dropdown-divider"></div>`));
 
         DDMenu.append($(`
             <div class="dropdown-item menuItemLayout" id="editProfileCmd">
@@ -337,16 +359,14 @@ function updateDropDownMenu() {
         DDMenu.append($(`<div class="dropdown-divider"></div>`));
     }
 
-    if(!loggedUser)
-    {
-    DDMenu.append($(`
+    if (!loggedUser) {
+        DDMenu.append($(`
         <div class="dropdown-item" id="ConnectionCmd">
                 <i class="menuIcon fa fa-sign-in mx-2"></i> Connexion
         </div>
         `));
     }
-    else
-    {
+    else {
         DDMenu.append($(`
             <div class="dropdown-item" id="DeconnectionCmd">
                     <i class="menuIcon fa fa-sign-in mx-2"></i> Deconnexion
@@ -394,7 +414,7 @@ function updateDropDownMenu() {
         await showPosts(true);
         updateDropDownMenu();
     });
-    
+
     $('.category').on("click", async function () {
         selectedCategory = $(this).text().trim();
         await showPosts(true);
@@ -440,11 +460,9 @@ function removeWaitingGif() {
     clearTimeout(waiting);
     $("#waitingGif").remove();
 }
-async function Deconnection()
-{
+async function Deconnection() {
     let Deconnection = await API_LogoutUser(loggedUser);
-    if(Deconnection == "")
-    {
+    if (Deconnection == "") {
         loggedUser = undefined;
         showPosts();
     }
@@ -504,9 +522,9 @@ async function renderVerifyForm() {
         <div class="verifyForm">
             <div class="formHeader">Verification</div>
             <div class="formText">Un Courriel de Verification a ete envoye a votre courriel:</div>
-            <input type="text" id="verifyCode" class="formInput" placeholder="Enter Verification Code" />
-            <button id="verifyButton" class="formButton">Verify</button>
-            <button id="cancelButton" class="formButton">Cancel</button>
+            <input type="text" id="verifyCode" class="formInput" placeholder=Entrer votre code de verification" />
+            <button id="verifyButton" class="formButton">Verifier</button>
+            <button id="cancelButton" class="formButton">Annuler</button>
         </div>
     `;
     $("#form").append(formHtml);
@@ -514,17 +532,16 @@ async function renderVerifyForm() {
     $('#verifyButton').on("click", async function () {
         let verifyCode = $("#verifyCode").val().trim();
         if (verifyCode) {
-            let response = await API_verify(loggedUser.User.Id, verifyCode);
+            let response = await API_verify(loggedUser.Id, verifyCode);
             if (response) {
-                let login = await API_LoginUser(response)
-                loggedUser = login;
                 showPosts()
-            } 
+            }
         }
     });
 
     $('#cancelButton').on("click", async function () {
-        showPosts(); 
+        
+        Deconnection()
     });
 }
 
@@ -625,18 +642,17 @@ function renderConForm() {
         </form>
     `);
 
-    initFormValidation(); 
+    initFormValidation();
 
     $('#registerButton').on("click", async function () {
-        await renderRegisterForm();  
+        await renderRegisterForm();
     });
-    
+
     $('#loginForm').on("submit", async function (event) {
-        event.preventDefault(); 
+        event.preventDefault();
         let loginInfo = getFormData($("#loginForm"));
-        let result = await API_LoginUser(loginInfo);            
+        let result = await API_LoginUser(loginInfo);
         if (result && result.User) {
-            console.log(result);
             loggedUser = result;
             const userToSave = {
                 Id: loggedUser.User.Id,
@@ -645,18 +661,23 @@ function renderConForm() {
                 Email: loggedUser.User.Email,
                 Avatar: loggedUser.User.Avatar,
                 VerifyCode: loggedUser.User.VerifyCode,
+                Authorizations: loggedUser.User.Authorizations,
+                Created: loggedUser.User.Created,
                 isAdmin: loggedUser.User.isAdmin,
                 isBlocked: loggedUser.User.isBlocked
             };
-
-
             localStorage.setItem('loggedUser', JSON.stringify(userToSave));
             let loggedUserData = localStorage.getItem('loggedUser');
             if (loggedUserData) {
                 loggedUser = JSON.parse(loggedUserData);
-                console.log("Logged in user:", loggedUser);
             }
+            ResetLoggedUser();
             showPosts();
+
+
+
+
+
         } else {
             renderError("Identifiants incorrects. Veuillez vérifier votre email et mot de passe.");
         }
@@ -664,9 +685,7 @@ function renderConForm() {
 }
 
 function renderRegisterForm(user = null) {
-    console.log("form" + user);
     let create = user == null;
-
     if (create) {
         user = {
             Id: "",
@@ -778,14 +797,9 @@ function renderRegisterForm(user = null) {
         delete user.PasswordVerification;
 
         let result = create ? await API_RegisterUser(user) : await API_ModifyUser(user);
-
         if (result) {
-            if (create) {
-                Deconnection();
-                showPosts();
-            } else {
-                loggedUser = result;
-            }
+            Deconnection();
+            showPosts();
         } else {
             renderError("Une erreur est survenue! " + API_getcurrentHttpError());
         }

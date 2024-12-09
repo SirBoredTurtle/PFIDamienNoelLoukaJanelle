@@ -25,25 +25,27 @@ function API_RegisterUser(user) {
     });
 }
 
-
-async function API_ModifyUser(data) { 
-    console.log(data);
-    try {
-        const response = await $.ajax({
+function API_ModifyUser(data) {
+    return new Promise(resolve => {
+        $.ajax({
             url: `${API_URL}/modify`, 
-            method: "PUT",
+            method: "put",
             contentType: "application/json",
             headers: {
                 'authorization': `Bearer ${data.AccessToken}`
             },
-            data: JSON.stringify(data)
+            data: JSON.stringify(data),
+            success: (response) => {
+                currentHttpError = "";
+                console.log(response);
+                resolve(response);
+            },
+            error: (xhr) => {
+                console.error(xhr);
+                resolve(null);
+            }
         });
-        currentHttpError = ""; 
-        return response;
-    } catch (xhr) {
-        currentHttpError = xhr.responseJSON?.message || xhr.statusText || "Unknown error"; 
-        return null;
-    }
+    });
 }
     async function API_LoginUser(loggeduser) {
         return new Promise(resolve => {
