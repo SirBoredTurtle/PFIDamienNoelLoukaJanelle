@@ -186,3 +186,24 @@
     overflow-y: auto;
     scrollbar-gutter: stable;
 }
+
+.hover-target {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    margin: 50px;
+  }
+
+  .tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 14px;
+    display: none; 
+    pointer-events: none;
+    white-space: nowrap;
+  }
