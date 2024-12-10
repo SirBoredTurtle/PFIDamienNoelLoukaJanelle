@@ -278,6 +278,16 @@ async function renderPosts(queryString) {
     removeWaitingGif();
     return endOfData;
 }
+function AfficherListe()
+{
+    Name = "allo"
+    return $(`
+        <div>
+            <i class="menuIcon fa ${Name} mx-2"></i>
+        </div>
+    `);
+}
+
 function renderPost(post, loggedUser) {
 
     let date = convertToFrenchDate(UTC_To_Local(post.Date));
@@ -297,7 +307,7 @@ function renderPost(post, loggedUser) {
         <span class="editCmd cmdIconSmall fa fa-pencil" postId="${post.Id}" title="Modifier nouvelle"></span>
         <span class="deleteCmd cmdIconSmall fa fa-trash" postId="${post.Id}" title="Effacer nouvelle"></span>
         <span class="likeCmd cmdIconSmall fa-regular fa-thumbs-up" postId="${post.Id}" title="Liker nouvelle"></span>
-        <span  postId="${post.Id}" title="${thispostlikes.Name}">${thispostlikes.length}</span>
+        <span  postId="${post.Id}" title="${AfficherListe()}">${thispostlikes.length}</span>
         `;
         
     return $(`
