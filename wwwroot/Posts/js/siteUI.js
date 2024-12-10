@@ -278,7 +278,7 @@ async function renderPosts(queryString) {
     removeWaitingGif();
     return endOfData;
 }
-function AfficherListe()
+function AfficherListe(loggedUser)
 {
     Name = "allo"
     return $(`
@@ -307,7 +307,7 @@ function renderPost(post, loggedUser) {
         <span class="editCmd cmdIconSmall fa fa-pencil" postId="${post.Id}" title="Modifier nouvelle"></span>
         <span class="deleteCmd cmdIconSmall fa fa-trash" postId="${post.Id}" title="Effacer nouvelle"></span>
         <span class="likeCmd cmdIconSmall fa-regular fa-thumbs-up" postId="${post.Id}" title="Liker nouvelle"></span>
-        <span  postId="${post.Id}" title="${AfficherListe()}">${thispostlikes.length}</span>
+        <span  postId="${post.Id}" title="${AfficherListe(loggedUser)}">${thispostlikes.length}</span>
         `;
         
     return $(`
