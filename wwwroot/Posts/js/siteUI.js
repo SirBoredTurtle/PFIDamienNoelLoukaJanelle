@@ -299,7 +299,7 @@ function renderPost(post, loggedUser) {
         <span class="likeCmd cmdIconSmall fa-regular fa-thumbs-up" postId="${post.Id}" title="Liker nouvelle"></span>
         <span  postId="${post.Id}" title="${thispostlikes.Name}">${thispostlikes.length}</span>
         `;
-
+        
     return $(`
         <div class="post" id="${post.Id}">
             <div class="postHeader">
