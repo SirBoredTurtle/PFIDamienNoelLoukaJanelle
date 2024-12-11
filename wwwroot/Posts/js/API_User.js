@@ -1,15 +1,33 @@
-//const API_URL = "https://api-server-5.glitch.me/api/contacts";
-const API_URL = "http://localhost:5000/api/Accounts";
-let currentHttpError = "";
+class API_user
+{
+static API_URL() { return "http://localhost:5000/api/Accounts" };
+static initHttpState() {
+    this.currentHttpError = "";
+    this.currentStatus = 0;
+    this.error = false;
+}
+static async HEAD() {
+    API_user.initHttpState();
+    return new Promise(resolve => {
+        $.ajax({
+            url: this.API_URL(),
+            type: 'HEAD',
+            contentType: 'text/plain',
+            complete: data => { resolve(data.getResponseHeader('ETag')); },
+            error: (xhr) => { Posts_API.setHttpErrorState(xhr); resolve(null); }
+        });
+    });
+}
 
-function API_getcurrentHttpError () {
+
+static API_getcurrentHttpError () {
     return currentHttpError; 
 }
 
-function API_RegisterUser(user) {
+static API_RegisterUser(user) {
     return new Promise(resolve => {
         $.ajax({
-            url: `${API_URL}/register`, 
+            url: `${this.API_URL()}/register`, 
             method: "POST",
             contentType: "application/json",
             data: JSON.stringify(user),
@@ -25,10 +43,10 @@ function API_RegisterUser(user) {
     });
 }
 
-function API_ModifyUser(data) {
+static API_ModifyUser(data) {
     return new Promise(resolve => {
         $.ajax({
-            url: `${API_URL}/modify`, 
+            url: `${this.API_URL()}/modify`, 
             method: "put",
             contentType: "application/json",
             headers: {
@@ -36,53 +54,44 @@ function API_ModifyUser(data) {
             },
             data: JSON.stringify(data),
             success: (response) => {
-                currentHttpError = "";
-                console.log(response);
                 resolve(response);
             },
             error: (xhr) => {
-                console.error(xhr);
-                resolve(null);
+                resolve(xhr);
             }
         });
     });
 }
-    async function API_LoginUser(loggeduser) {
+    static async  API_LoginUser(loggeduser) {
         return new Promise(resolve => {
             $.ajax({
-                url: `${API_URL}/login`, 
+                url: `${this.API_URL()}/login`, 
                 method: "POST",
                 contentType: "application/json",
                 data: JSON.stringify(loggeduser),
                 success: (response) => {
-                    currentHttpError = "";
-                    
                     if (response) {
-                        localStorage.setItem('authToken', response);
                         resolve(response); 
                     } else {
-                        console.error("Token not found in response");
                         resolve(null); 
                     }
                 },
                 error: (xhr) => {
-                    console.error('Login failed:', xhr);
-                    resolve(null);  
+                    resolve(xhr);  
                 }
             });
         });
     }
     
     
-async function API_LogoutUser(loggininfo) {
+static async  API_LogoutUser(loggininfo) {
     return new Promise(resolve => {
         $.ajax({
-            url: `${API_URL}/logout`, 
+            url: `${this.API_URL()}/logout`, 
             method: "POST",
             contentType: "application/json",
             data: JSON.stringify(loggininfo),
             success: (response) => {
-                currentHttpError = "";
                 resolve(response);
             },
             error: (xhr) => {
@@ -93,8 +102,8 @@ async function API_LogoutUser(loggininfo) {
     });
 }
 
-function API_verify(id, code) {
-    const url = `${API_URL}/verify`; 
+static async API_verify(id, code) {
+    const url = `${API_user.API_URL()}/verify`; 
     $.ajax({
         url: url, 
         type: 'GET', 
@@ -109,11 +118,55 @@ function API_verify(id, code) {
         }
     });
 }
+static async API_GetUserData(userId ,accessToken) {
+    return new Promise(resolve => {
+        $.ajax({
+            url: `${API_URL}`,
+            method: "GET", 
+            contentType: "application/json",
+            headers: {
+                'authorization': `Bearer ${accessToken}`
+            },
+            success: (response) => {
+                currentHttpError = "";
+                if (response) {
+                    localStorage.setItem('authToken', response);
+                    resolve(response); 
+                } else {
+                    resolve(null); 
+                }
+            },
+            error: (xhr) => {
+                console.error('Login failed:', xhr);
+                resolve(null);  
+            }
+        });
+    });
+}
 
-async function API_RemoveUser(userId, accessToken) {
+static async  API_RemoveUser(userId, accessToken) {
     return new Promise((resolve) => {
         $.ajax({
-            url: `${API_URL}/remove`,
+            url: `${this.API_URL()}/remove`,
+            method: "GET", 
+            contentType: "application/json",
+            headers: {
+                'authorization': `Bearer ${accessToken}`
+            },
+            data: { id: userId}, 
+            success: (response) => {
+                resolve(response);
+            },
+            error: (xhr) => {
+                resolve(xhr);
+            }
+        });
+    });
+}
+static async API_Promote(userId, accessToken) {
+    return new Promise((resolve) => {
+        $.ajax({
+            url: `${this.API_URL()}/promote`,
             method: "GET", 
             contentType: "application/json",
             headers: {
@@ -131,4 +184,5 @@ async function API_RemoveUser(userId, accessToken) {
             }
         });
     });
+}
 }

@@ -25,10 +25,12 @@ export default class Controller {
             } else {
                 this.HttpContext.response.unAuthorized("Unauthorized access");
             }
-        } 
-        else if(route === "remove")
-        {
+        }
+        else if (route === "remove") {
             this.remove(id);
+        }
+        else if (route === "promote") {
+            this.promote(this.HttpContext.params.Id);
         }
         else if (AccessControl.readGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
             if (this.repository != null) {
@@ -87,7 +89,24 @@ export default class Controller {
 
 
     put(data) {
-        if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
+        if (this.HttpContext.user.Id == data.Id) {
+            if (this.HttpContext.path.id == "modify") {
+                this.modify(data);
+            }
+            else if (this.repository.model.state.isValid) {
+                this.HttpContext.response.accepted(data);
+            } else {
+                if (this.repository.model.state.notFound) {
+                    this.HttpContext.response.notFound(this.repository.model.state.errors);
+                } else {
+                    if (this.repository.model.state.inConflict)
+                        this.HttpContext.response.conflict(this.repository.model.state.errors)
+                    else
+                        this.HttpContext.response.badRequest(this.repository.model.state.errors);
+                }
+            }
+        }
+        else if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
             if (this.HttpContext.path.id !== '') {
                 data = this.repository.update(this.HttpContext.path.id, data);
                 if (this.repository.model.state.isValid) {
@@ -104,26 +123,7 @@ export default class Controller {
                 }
             } else
                 this.HttpContext.response.badRequest("The Id of ressource is not specified in the request url.");
-        } else if (this.HttpContext.user.Id == data.Id) {
-            if(this.HttpContext.path.id == "modify")
-            {
-                this.modify(data);
-            }
-            else if (this.repository.model.state.isValid) {
-                this.HttpContext.response.accepted(data);
-            } else {
-                if (this.repository.model.state.notFound) {
-                    this.HttpContext.response.notFound(this.repository.model.state.errors);
-                } else {
-                    if (this.repository.model.state.inConflict)
-                        this.HttpContext.response.conflict(this.repository.model.state.errors)
-                    else
-                        this.HttpContext.response.badRequest(this.repository.model.state.errors);
-                }
-            }
         }
-        else
-            this.HttpContext.response.unAuthorized("Unauthorized access");
     }
     remove(id) {
         if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {

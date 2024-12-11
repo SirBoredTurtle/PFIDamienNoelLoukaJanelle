@@ -241,7 +241,6 @@ async function renderPosts(queryString) {
     }
     let responselike = await Likes_API.Get();
     if (!Posts_API.error) {
-        currentETag = responselike.ETag;
         let ListLikes = responselike.data;
         if (ListLikes.length > 0) {
             ListLikes.forEach(like => {
@@ -278,12 +277,12 @@ async function renderPosts(queryString) {
     removeWaitingGif();
     return endOfData;
 }
+
 function AfficherListe(loggedUser)
 {
-    Name = "allo"
     return $(`
         <div>
-            <i class="menuIcon fa ${Name} mx-2"></i>
+            <i class="menuIcon fa ${loggedUser.Name} mx-2"></i>
         </div>
     `);
 }
@@ -307,7 +306,7 @@ function renderPost(post, loggedUser) {
         <span class="editCmd cmdIconSmall fa fa-pencil" postId="${post.Id}" title="Modifier nouvelle"></span>
         <span class="deleteCmd cmdIconSmall fa fa-trash" postId="${post.Id}" title="Effacer nouvelle"></span>
         <span class="likeCmd cmdIconSmall fa-regular fa-thumbs-up" postId="${post.Id}" title="Liker nouvelle"></span>
-        <span  postId="${post.Id}" title="${AfficherListe(loggedUser)}">${thispostlikes.length}</span>
+        <span  postId="${post.Id}" title="${thispostlikes.Name}">${thispostlikes.length}</span>
         `;
         
     return $(`
@@ -350,6 +349,8 @@ function updateDropDownMenu() {
     let DDMenu = $("#DDMenu");
     let selectClass = selectedCategory === "" ? "fa-check" : "fa-fw";
     DDMenu.empty();
+
+
     if (loggedUser) {
         DDMenu.append($(`
             <div class="dropdown-item userProfile">
@@ -357,8 +358,14 @@ function updateDropDownMenu() {
                 <span class="userName">${loggedUser.Name}</span>
             </div>
         `));
-        DDMenu.append($(`<div class="dropdown-divider"></div>`));
 
+        if (loggedUser.Authorizations.readAccess == 3 && loggedUser.Authorizations.writeAccess == 3) {
+            DDMenu.append($(`
+                <div class="dropdown-item menuItemLayout" id="OpenAdminMenu">
+                    <i class="menuIcon fa fa-users-gear mx-2"></i> Gestion Usagers
+                </div>
+            `));
+        }
         DDMenu.append($(`
             <div class="dropdown-item menuItemLayout" id="editProfileCmd">
                 <i class="menuIcon fa fa-user-edit mx-2"></i> Modifier profile
@@ -417,6 +424,10 @@ function updateDropDownMenu() {
         showFormCompte();
         renderRegisterForm(loggedUser);
     });
+    $('#OpenAdminMenu').on("click", function () {
+        showFormCompte();
+        AdminMenu();
+    });
     $('#allCatCmd').on("click", async function () {
         selectedCategory = "";
         await showPosts(true);
@@ -469,11 +480,11 @@ function removeWaitingGif() {
     $("#waitingGif").remove();
 }
 async function Deconnection() {
-    let Deconnection = await API_LogoutUser(loggedUser);
+    let Deconnection = await API_user.API_LogoutUser(loggedUser);
     if (Deconnection == "") {
         localStorage.removeItem('loggedUser');
         loggedUser = undefined;
-        showPosts();
+        showConCmdForm();
     }
 }
 /////////////////////// Posts content manipulation ///////////////////////////////////////////////////////
@@ -541,7 +552,7 @@ async function renderVerifyForm() {
     $('#verifyButton').on("click", async function () {
         let verifyCode = $("#verifyCode").val().trim();
         if (verifyCode) {
-            let response = await API_verify(loggedUser.Id, verifyCode);
+            let response = await API_user.API_verify(loggedUser.Id, verifyCode);
             let loggedUserData = localStorage.getItem('loggedUser');
             if (loggedUserData) {
                 loggedUser = JSON.parse(loggedUserData);
@@ -553,8 +564,9 @@ async function renderVerifyForm() {
                 ResetLoggedUser();
                 showPosts();
             } else {
-                console.error('No logged user data found.');
-            }
+
+
+                        }
 
         }
     });
@@ -661,6 +673,11 @@ function renderConForm() {
         </form>
     `);
 
+    initTimeout(60, () => {
+        alert('Votre session a expiré en raison de l\'inactivité. Vous allez être redirigé.');
+        Deconnection();
+    });
+
     initFormValidation();
 
     $('#registerButton').on("click", async function () {
@@ -670,8 +687,7 @@ function renderConForm() {
     $('#loginForm').on("submit", async function (event) {
         event.preventDefault();
         let loginInfo = getFormData($("#loginForm"));
-        let result = await API_LoginUser(loginInfo);
-        console.log(result);
+        let result = await API_user.API_LoginUser(loginInfo);
         if (result && result.User) {
             loggedUser = result;
             const userToSave = {
@@ -694,16 +710,105 @@ function renderConForm() {
             }
             ResetLoggedUser();
             showPosts();
-
-
-
-
-
+            noTimeout();
         } else {
-            renderError("Identifiants incorrects. Veuillez vérifier votre email et mot de passe.");
+            showError("Identifiants incorrects. Veuillez vérifier votre email et mot de passe.");
         }
     });
 }
+function AdminMenu() {
+    API_user.API_GetUserData("", loggedUser.AccessToken)
+        .then((data) => {
+            console.log('Fetched user data:', data);
+
+            displayUserList(data);
+        })
+        .catch((error) => {
+            showError("Impossible de récupérer les données utilisateur.");
+        });
+}
+
+function displayUserList(users) {
+    $("#form").empty();
+
+    $("#viewTitle").text("Gestion d'usagers");
+
+
+    const filteredUsers = users.filter(user => user.Id !== loggedUser.Id);
+
+    filteredUsers.forEach(user => {
+        let promoteButtonLabel = "";
+        if (user.Authorizations.readAccess === 1 && user.Authorizations.writeAccess === 1) {
+            promoteButtonLabel = "Utilisateur";
+        } else if (user.Authorizations.readAccess === 2 && user.Authorizations.writeAccess === 2) {
+            promoteButtonLabel = "Super Utilisateur";
+        } else if (user.Authorizations.readAccess === 3 && user.Authorizations.writeAccess === 3) {
+            promoteButtonLabel = "Admin";
+        }
+
+        const userRow = `
+            <div class="user-row">
+                <img src="${user.Avatar || 'default-avatar.jpg'}" alt="${user.Name}'s avatar" class="avatar" />
+                <a href="#" class="user-name" data-user-id="${user.Id}">${user.Name}</a>
+                <div class="buttons-container">
+                    <button class="user-button" data-user-id="${user.Id}">${promoteButtonLabel}</button>
+                    <button class="block-button" data-user-id="${user.Id}">Bloquer</button>
+                    <button class="delete-button" data-user-id="${user.Id}">Supprimer</button>
+                </div>
+            </div>
+        `;
+
+        $("#form").append(userRow);
+    });
+
+    $(".delete-button").on("click", function () {
+        const userId = $(this).data("user-id");
+        handleDeleteAction(userId);
+    });
+
+    $(".user-name").on("click", function (event) {
+        event.preventDefault();
+        const userId = $(this).data("user-id");
+        handleUserAction(userId);
+    });
+
+    $(".user-button").on("click", function () {
+        const userId = $(this).data("user-id");
+        handlePromoteAction(userId);
+    });
+}
+
+
+
+async function handlePromoteAction(userId) {
+    let result = await API_user.API_Promote(userId)
+    if(result)
+    {
+
+    }
+}
+
+function handleBlockAction(userId) {
+    console.log('Block action clicked for user:', userId);
+}
+
+async function handleDeleteAction(userId) {
+    if (confirm("Êtes-vous sûr de vouloir supprimer ce compte?")) {
+        try {
+            let result = await API_user.API_RemoveUser(userId, loggedUser.AccessToken);
+            if (result) {
+                OpenAdminMenu()
+            } else {
+                showError("Impossible de supprimer le compte.");
+            }
+        } catch (error) {
+            showError("Une erreur s'est produite lors de la suppression.");
+        }
+    }
+}
+
+
+
 
 function renderRegisterForm(user = null) {
     let create = user == null;
@@ -800,6 +905,7 @@ function renderRegisterForm(user = null) {
         </form>
     `);
 
+
     initImageUploaders();
     initFormValidation();
 
@@ -807,43 +913,41 @@ function renderRegisterForm(user = null) {
         event.preventDefault();
         let user = getFormData($("#userForm"));
         if (user.Email !== user.EmailVerification) {
-            renderError("Les emails ne correspondent pas.");
+            showError("Les emails ne correspondent pas.");
             return;
         }
         if (user.Password !== user.PasswordVerification) {
-            renderError("Les mots de passe ne correspondent pas.");
+            showError("Les mots de passe ne correspondent pas.");
             return;
         }
         delete user.EmailVerification;
         delete user.PasswordVerification;
 
-        let result = create ? await API_RegisterUser(user) : await API_ModifyUser(user);
+        let result = create ? await API_user.API_RegisterUser(user) : await API_user.API_ModifyUser(user);
+        console.log(result)
+        alert(result)
         if (result) {
             Deconnection();
             showPosts();
         } else {
-            renderError("Une erreur est survenue! " + API_getcurrentHttpError());
+            showError("Une erreur est survenue! " + API_getcurrentHttpError());
         }
     });
 
     if (!create) {
         $('#deleteAccount').on("click", async function () {
             if (confirm("Êtes-vous sûr de vouloir supprimer votre compte?")) {
-                let result = await API_RemoveUser(loggedUser.Id, loggedUser.AccessToken);
+                let result = await API_user.API_RemoveUser(loggedUser.Id, loggedUser.AccessToken);                    
+                Deconnection();
+
                 if (result) {
-                    Deconnection();
                 } else {
-                    renderError("Impossible de supprimer le compte.");
+                    showError("Impossible de supprimer le compte.");
                 }
             }
         });
     }
 }
-
-
-
-
-
 function newPost() {
     let Post = {};
     Post.Id = 0;
@@ -912,7 +1016,7 @@ function renderPostForm(post = null) {
     if (create) $("#keepDateControl").hide();
 
     initImageUploaders();
-    initFormValidation(); // important do to after all html injection!
+    initFormValidation();
 
     $("#commit").click(function () {
         $("#commit").off();
@@ -939,10 +1043,8 @@ function renderPostForm(post = null) {
     });
 }
 function getFormData($form) {
-    // prevent html injections
     const removeTag = new RegExp("(<[a-zA-Z0-9]+>)|(</[a-zA-Z0-9]+>)", "g");
     var jsonObject = {};
-    // grab data from all controls
     $.each($form.serializeArray(), (index, control) => {
         jsonObject[control.name] = control.value.replace(removeTag, "");
     });
