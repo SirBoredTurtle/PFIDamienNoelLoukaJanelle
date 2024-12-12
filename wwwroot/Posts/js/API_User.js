@@ -32,7 +32,6 @@ static API_RegisterUser(user) {
             contentType: "application/json",
             data: JSON.stringify(user),
             success: (response) => {
-                currentHttpError = "";
                 resolve(response);
             },
             error: (xhr) => {
@@ -103,13 +102,13 @@ static async  API_LogoutUser(loggininfo) {
 }
 
 static async API_verify(id, code) {
+    console.log(id);
     const url = `${API_user.API_URL()}/verify`; 
     $.ajax({
         url: url, 
         type: 'GET', 
         data: { id: id, code: code }, 
         success: function(response) {
-            currentHttpError = "";
             resolve(response);
         },
         error: function(xhr) {
@@ -121,16 +120,14 @@ static async API_verify(id, code) {
 static async API_GetUserData(userId ,accessToken) {
     return new Promise(resolve => {
         $.ajax({
-            url: `${API_URL}`,
+            url: `${this.API_URL()}`,
             method: "GET", 
             contentType: "application/json",
             headers: {
                 'authorization': `Bearer ${accessToken}`
             },
             success: (response) => {
-                currentHttpError = "";
                 if (response) {
-                    localStorage.setItem('authToken', response);
                     resolve(response); 
                 } else {
                     resolve(null); 
@@ -172,17 +169,43 @@ static async API_Promote(userId, accessToken) {
             headers: {
                 'authorization': `Bearer ${accessToken}`
             },
-            data: { id: userId}, 
+            data: { Id: userId}, 
             success: (response) => {
-                currentHttpError = ""; 
-                resolve(response);
+                if (response) {
+                    resolve(response); 
+                } else {
+                    resolve(null); 
+                }
             },
             error: (xhr) => {
-                console.error("Error deleting user:", xhr);
-                currentHttpError = xhr.responseJSON?.error || "Unknown error occurred.";
-                resolve(null);
+                resolve(xhr);  
             }
         });
     });
 }
+static async API_Block(userId, accessToken) {
+    return new Promise((resolve) => {
+        $.ajax({
+            url: `${this.API_URL()}/block`,
+            method: "GET", 
+            contentType: "application/json",
+            headers: {
+                'authorization': `Bearer ${accessToken}`
+            },
+            data: { Id: userId}, 
+            success: (response) => {
+                if (response) {
+                    resolve(response); 
+                } else {
+                    resolve(null); 
+                }
+            },
+            error: (xhr) => {
+                resolve(xhr);  
+            }
+        });
+    });
+}
+
+
 }

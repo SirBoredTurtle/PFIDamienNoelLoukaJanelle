@@ -142,15 +142,15 @@ export default class AccountsController extends Controller {
         promote(user) {
         if (AccessControl.writeGranted(this.HttpContext.authorizations, AccessControl.admin())) {
             if (this.repository != null) {
-                let foundUser = this.repository.findByField("Id", user.Id);
+                let foundUser = this.repository.findByField("Id", this.HttpContext.path.params.Id);
                 foundUser.Authorizations.readAccess++;
                 if (foundUser.Authorizations.readAccess > 3) foundUser.Authorizations.readAccess = 1;
                 foundUser.Authorizations.writeAccess++;
                 if (foundUser.Authorizations.writeAccess > 3) foundUser.Authorizations.writeAccess = 1;
-                this.repository.update(user.Id, foundUser, false);
+                this.repository.update(foundUser.Id, foundUser, false);
                 if (this.repository.model.state.isValid) {
-                    let userFound = this.repository.get(foundUser.Id); // get data binded record
-                    this.HttpContext.response.JSON(userFound);
+                    let foundUser = this.repository.get(foundUser.Id); // get data binded record
+                    this.HttpContext.response.JSON(foundUser);
                 }
                 else
                     this.HttpContext.response.badRequest(this.repository.model.state.errors);
@@ -163,13 +163,13 @@ export default class AccountsController extends Controller {
     block(user) {
         if (AccessControl.writeGranted(this.HttpContext.authorizations, AccessControl.admin())) {
             if (this.repository != null) {
-                let foundUser = this.repository.findByField("Id", user.Id);
+                let foundUser = this.repository.findByField("Id", this.HttpContext.path.params.Id);
                 foundUser.Authorizations.readAccess = foundUser.Authorizations.readAccess == 1 ? -1 : 1;
                 foundUser.Authorizations.writeAccess = foundUser.Authorizations.writeAccess == 1 ? -1 : 1;
-                this.repository.update(user.Id, foundUser, false);
+                this.repository.update(foundUser.Id, foundUser, false);
                 if (this.repository.model.state.isValid) {
-                    userFound = this.repository.get(userFound.Id); // get data binded record
-                    this.HttpContext.response.JSON(userFound);
+                    foundUser = this.repository.get(foundUser.Id); // get data binded record
+                    this.HttpContext.response.JSON(foundUser);
                 }
                 else
                     this.HttpContext.response.badRequest(this.repository.model.state.errors);
@@ -231,7 +231,6 @@ export default class AccountsController extends Controller {
         }
     }
     
-    
     // GET:account/remove/id
     remove(id) {
         const userId = this.HttpContext.path.params.id;
@@ -252,6 +251,5 @@ export default class AccountsController extends Controller {
             }, 404); // Respond with 404 Not Found
         }
     }
-    
-    
+     
 }

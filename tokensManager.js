@@ -83,7 +83,6 @@ export default
         for (let token of cachedTokens) {
             if (token.Access_token == access_token) {
                 if (renew) {
-                    // renew expiration date
                     token.Expire_Time = utilities.nowInSeconds() + tokenLifeDuration;
                 }
                 return token;

@@ -30,9 +30,14 @@ export default class Controller {
             this.remove(id);
         }
         else if (route === "promote") {
-            this.promote(this.HttpContext.params.Id);
+            this.promote(this.HttpContext);
         }
-        else if (AccessControl.readGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
+        else if (route === "block") {
+            this.block(this.HttpContext);
+
+        }
+        else if
+            (AccessControl.readGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
             if (this.repository != null) {
                 if (id !== '') {
                     let data = this.repository.get(id);
@@ -80,29 +85,38 @@ export default class Controller {
         }
         else {
             if (AccessControl.writeGranted(this.HttpContext.authorizations, this.requiredAuthorizations)) {
-                super.post(data);
-            } else {
+                data = this.repository.add(data);
+                if (this.repository.model.state.isValid) {
+                    this.HttpContext.response.created(data);
+                } else {
+                    if (this.repository.model.state.inConflict)
+                        this.HttpContext.response.conflict(this.repository.model.state.errors);
+                    else
+                        this.HttpContext.response.badRequest(this.repository.model.state.errors);
+                }
+            } else
                 this.HttpContext.response.unAuthorized("Unauthorized access");
-            }
         }
     }
 
 
     put(data) {
-        if (this.HttpContext.user.Id == data.Id) {
-            if (this.HttpContext.path.id == "modify") {
-                this.modify(data);
-            }
-            else if (this.repository.model.state.isValid) {
-                this.HttpContext.response.accepted(data);
-            } else {
-                if (this.repository.model.state.notFound) {
-                    this.HttpContext.response.notFound(this.repository.model.state.errors);
+        if (this.HttpContext.user != null) {
+            if (this.HttpContext.user.Id == data.Id) {
+                if (this.HttpContext.path.id == "modify") {
+                    this.modify(data);
+                }
+                else if (this.repository.model.state.isValid) {
+                    this.HttpContext.response.accepted(data);
                 } else {
-                    if (this.repository.model.state.inConflict)
-                        this.HttpContext.response.conflict(this.repository.model.state.errors)
-                    else
-                        this.HttpContext.response.badRequest(this.repository.model.state.errors);
+                    if (this.repository.model.state.notFound) {
+                        this.HttpContext.response.notFound(this.repository.model.state.errors);
+                    } else {
+                        if (this.repository.model.state.inConflict)
+                            this.HttpContext.response.conflict(this.repository.model.state.errors)
+                        else
+                            this.HttpContext.response.badRequest(this.repository.model.state.errors);
+                    }
                 }
             }
         }

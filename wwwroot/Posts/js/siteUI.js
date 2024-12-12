@@ -10,6 +10,7 @@ let categories = [];
 let selectedCategory = "";
 let currentETag = "";
 let periodic_Refresh_paused = false;
+let timeoutuser_paused = false;
 let postsPanel;
 let itemLayout;
 let waiting = null;
@@ -39,12 +40,11 @@ async function Init_UI() {
         showPosts();
     });
 
-
-
-
+    createTimeoutPopup();
     installKeywordsOnkeyupEvent();
     await showPosts();
     start_Periodic_Refresh();
+
 }
 
 /////////////////////////// Search keywords UI //////////////////////////////////////////////////////////
@@ -54,7 +54,6 @@ function ResetLoggedUser() {
     if (loggedUserData) {
         loggedUser = JSON.parse(loggedUserData);
     }
-    console.log(loggedUser);
 }
 function installKeywordsOnkeyupEvent() {
     $("#searchKeys").on('keyup', function () {
@@ -119,11 +118,15 @@ function intialView() {
     showSearchIcon();
 }
 async function showPosts(reset = false) {
+    timeoutuser_paused = false;
+    periodic_Refresh_paused = false;
+
     if (loggedUser != undefined) {
         if (loggedUser.VerifyCode != "verified") {
             showverifyForm();
         }
         else {
+            $("#createPost").show();
             intialView();
             $("#viewTitle").text("Fil de nouvelles");
             periodic_Refresh_paused = false;
@@ -132,8 +135,8 @@ async function showPosts(reset = false) {
     }
     else {
         intialView();
+        $("#createPost").hide();
         $("#viewTitle").text("Fil de nouvelles");
-        periodic_Refresh_paused = false;
         await postsPanel.show(reset);
     }
 
@@ -232,6 +235,32 @@ function start_Periodic_Refresh() {
     },
         periodicRefreshPeriod * 1000);
 }
+function startDeconnectionTimer() {
+
+    setInterval(async () => {
+        if (!timeoutuser_paused) {
+            remainingTime--;
+
+            if (remainingTime > expirationTime) {
+                $(".popup").hide();
+            } else if (remainingTime > 0) {
+                if ($("#popUpMessage").length === 0) {
+                    createTimeoutPopup();
+                }
+                $(".popup").show();
+                $("#popUpMessage").text("Expiration dans " + remainingTime + " secondes");
+                console.log("Message: Expiration dans " + remainingTime + " secondes");
+            } else {
+                clearTimeout(currentTimeouID);
+                $(".popup").hide();
+                Deconnection();
+            }
+        }
+
+    }, 1000);
+}
+
+
 async function renderPosts(queryString) {
     let endOfData = false;
     queryString += "&sort=date,desc";
@@ -278,8 +307,7 @@ async function renderPosts(queryString) {
     return endOfData;
 }
 
-function AfficherListe(loggedUser)
-{
+function AfficherListe(loggedUser) {
     return $(`
         <div>
             <i class="menuIcon fa ${loggedUser.Name} mx-2"></i>
@@ -287,7 +315,7 @@ function AfficherListe(loggedUser)
     `);
 }
 
-function renderPost(post, loggedUser) {
+function renderPost(post) {
 
     let date = convertToFrenchDate(UTC_To_Local(post.Date));
     let thispostlikes = [];
@@ -299,15 +327,29 @@ function renderPost(post, loggedUser) {
                 }
             }
         });
+
     } else
         endOfData = true;
-    let crudIcon =
-        `
-        <span class="editCmd cmdIconSmall fa fa-pencil" postId="${post.Id}" title="Modifier nouvelle"></span>
-        <span class="deleteCmd cmdIconSmall fa fa-trash" postId="${post.Id}" title="Effacer nouvelle"></span>
-        <span class="likeCmd cmdIconSmall fa-regular fa-thumbs-up" postId="${post.Id}" title="Liker nouvelle"></span>
-        <span  postId="${post.Id}" title="${thispostlikes.Name}">${thispostlikes.length}</span>
+        let crudIcon = "";
+        if (loggedUser && post.UserId == loggedUser.Id) {
+            crudIcon += `
+                <span class="editCmd cmdIconSmall fa fa-pencil" postId="${post.Id}" title="Modifier nouvelle"></span>
+                <span class="deleteCmd cmdIconSmall fa fa-trash" postId="${post.Id}" title="Effacer nouvelle"></span>
+            `;
+        }
+        let userLike = loggedUser ? thispostlikes.find(like => like.UserId == loggedUser.Id) : null;
+        crudIcon += `
+            <span class="${userLike ? 'unlikeCmd' : 'likeCmd'} cmdIconSmall fa-${userLike ? 'solid' : 'regular'} fa-thumbs-up" 
+                  postId="${post.Id}" 
+                  ${userLike ? `data-like-id="${userLike.Id}"` : ""} 
+                  title="${userLike ? 'Retirer votre like' : 'Liker nouvelle'}">
+            </span>
         `;
+        let likesTitle = thispostlikes.map(like => like.Name).join(", ");
+        crudIcon += `
+            <span postId="${post.Id}" title="${likesTitle}">${thispostlikes.length}</span>
+        `;
+        
         
     return $(`
         <div class="post" id="${post.Id}">
@@ -441,7 +483,6 @@ function updateDropDownMenu() {
     });
 }
 function attach_Posts_UI_Events_Callback() {
-
     linefeeds_to_Html_br(".postText");
     // attach icon command click event callback
     $(".editCmd").off();
@@ -451,6 +492,21 @@ function attach_Posts_UI_Events_Callback() {
     $(".deleteCmd").off();
     $(".deleteCmd").on("click", function () {
         showDeletePostForm($(this).attr("postId"));
+    });
+    $(".likeCmd").off();
+    $(".likeCmd").on("click", async function ()
+    {
+        let likedata = {};
+        likedata.PostId =  $(this).attr("postId");
+        likedata.Name = loggedUser.Name;
+        likedata.UserId = loggedUser.Id;
+        likecmd(likedata);
+    });
+    $(".unlikeCmd").off();
+    $(".unlikeCmd").on("click", async function ()
+    {
+        let LikeId =  $(this).attr("data-like-id");
+        unlike(LikeId);
     });
     $(".moreText").off();
     $(".moreText").click(function () {
@@ -468,6 +524,14 @@ function attach_Posts_UI_Events_Callback() {
         $(`.postTextContainer[postId=${$(this).attr("postId")}]`).addClass('hideExtra');
         $(`.postTextContainer[postId=${$(this).attr("postId")}]`).removeClass('showExtra');
     })
+}
+async function likecmd(likedata)
+{
+    let result = await Likes_API.Save(likedata, true);
+}
+async function unlike(likedata)
+{
+    let result = await Likes_API.Delete(likedata);
 }
 function addWaitingGif() {
     clearTimeout(waiting);
@@ -566,7 +630,7 @@ async function renderVerifyForm() {
             } else {
 
 
-                        }
+            }
 
         }
     });
@@ -673,10 +737,6 @@ function renderConForm() {
         </form>
     `);
 
-    initTimeout(60, () => {
-        alert('Votre session a expiré en raison de l\'inactivité. Vous allez être redirigé.');
-        Deconnection();
-    });
 
     initFormValidation();
 
@@ -708,27 +768,32 @@ function renderConForm() {
             if (loggedUserData) {
                 loggedUser = JSON.parse(loggedUserData);
             }
+
             ResetLoggedUser();
             showPosts();
-            noTimeout();
+            startDeconnectionTimer();
         } else {
             showError("Identifiants incorrects. Veuillez vérifier votre email et mot de passe.");
         }
     });
 }
-function AdminMenu() {
-    API_user.API_GetUserData("", loggedUser.AccessToken)
-        .then((data) => {
+async function AdminMenu() {
+    try {
+        const data = await API_user.API_GetUserData("", loggedUser.AccessToken);
+        if (data) {
             console.log('Fetched user data:', data);
-
             displayUserList(data);
-        })
-        .catch((error) => {
+        } else {
             showError("Impossible de récupérer les données utilisateur.");
-        });
+        }
+    } catch (error) {
+        console.error('Error fetching user data:', error);
+        showError("Impossible de récupérer les données utilisateur.");
+    }
 }
 
 function displayUserList(users) {
+    timeoutuser_paused = true;
     $("#form").empty();
 
     $("#viewTitle").text("Gestion d'usagers");
@@ -737,28 +802,37 @@ function displayUserList(users) {
     const filteredUsers = users.filter(user => user.Id !== loggedUser.Id);
 
     filteredUsers.forEach(user => {
-        let promoteButtonLabel = "";
-        if (user.Authorizations.readAccess === 1 && user.Authorizations.writeAccess === 1) {
-            promoteButtonLabel = "Utilisateur";
-        } else if (user.Authorizations.readAccess === 2 && user.Authorizations.writeAccess === 2) {
-            promoteButtonLabel = "Super Utilisateur";
-        } else if (user.Authorizations.readAccess === 3 && user.Authorizations.writeAccess === 3) {
-            promoteButtonLabel = "Admin";
-        }
+        let promoteButton = "";
+        let banButtonLabel = "Bloquer";
+        if (user.Authorizations.readAccess === -1 && user.Authorizations.writeAccess === -1) {
+            banButtonLabel = "Debloquer";
+        } else
+            if (user.Authorizations.readAccess === 1 && user.Authorizations.writeAccess === 1) {
+                promoteButton = "<button class=\"user-button\" data-user-id=" + user.Id + ">Utilisateur</button>";
+            } else if (user.Authorizations.readAccess === 2 && user.Authorizations.writeAccess === 2) {
+                promoteButton = "<button class=\"user-button\" data-user-id=" + user.Id + ">Super Sutilisateur</button>";
+            } else if (user.Authorizations.readAccess === 3 && user.Authorizations.writeAccess === 3) {
+                promoteButton = "<button class=\"user-button\" data-user-id=" + user.Id + ">Admin</button>";
+            }
 
         const userRow = `
             <div class="user-row">
                 <img src="${user.Avatar || 'default-avatar.jpg'}" alt="${user.Name}'s avatar" class="avatar" />
                 <a href="#" class="user-name" data-user-id="${user.Id}">${user.Name}</a>
                 <div class="buttons-container">
-                    <button class="user-button" data-user-id="${user.Id}">${promoteButtonLabel}</button>
-                    <button class="block-button" data-user-id="${user.Id}">Bloquer</button>
-                    <button class="delete-button" data-user-id="${user.Id}">Supprimer</button>
+                ${promoteButton}
+                <button class="block-button" data-user-id="${user.Id}">${banButtonLabel}</button>
+                <button class="delete-button" data-user-id="${user.Id}">Supprimer</button>
                 </div>
             </div>
         `;
 
         $("#form").append(userRow);
+    });
+
+    $(".delete-button").on("click", function () {
+        const userId = $(this).data("user-id");
+        handleDeleteAction(userId);
     });
 
     $(".delete-button").on("click", function () {
@@ -776,28 +850,34 @@ function displayUserList(users) {
         const userId = $(this).data("user-id");
         handlePromoteAction(userId);
     });
+    $(".block-button").on("click", function () {
+        const userId = $(this).data("user-id");
+        handleBlockAction(userId);
+    });
 }
 
 
 
 async function handlePromoteAction(userId) {
-    let result = await API_user.API_Promote(userId)
-    if(result)
-    {
-
-    }
+    let result = await API_user.API_Promote(userId, loggedUser.AccessToken)
+    showFormCompte();
+    AdminMenu();
 }
 
-function handleBlockAction(userId) {
-    console.log('Block action clicked for user:', userId);
+
+async function handleBlockAction(userId) {
+    let result = await API_user.API_Block(userId, loggedUser.AccessToken)
+    showFormCompte();
+    AdminMenu();
 }
 
 async function handleDeleteAction(userId) {
     if (confirm("Êtes-vous sûr de vouloir supprimer ce compte?")) {
         try {
             let result = await API_user.API_RemoveUser(userId, loggedUser.AccessToken);
+            showFormCompte();
+            AdminMenu();
             if (result) {
-                OpenAdminMenu()
             } else {
                 showError("Impossible de supprimer le compte.");
             }
@@ -811,6 +891,7 @@ async function handleDeleteAction(userId) {
 
 
 function renderRegisterForm(user = null) {
+    timeoutuser_paused = true;
     let create = user == null;
     if (create) {
         user = {
@@ -937,7 +1018,7 @@ function renderRegisterForm(user = null) {
     if (!create) {
         $('#deleteAccount').on("click", async function () {
             if (confirm("Êtes-vous sûr de vouloir supprimer votre compte?")) {
-                let result = await API_user.API_RemoveUser(loggedUser.Id, loggedUser.AccessToken);                    
+                let result = await API_user.API_RemoveUser(loggedUser.Id, loggedUser.AccessToken);
                 Deconnection();
 
                 if (result) {
@@ -958,6 +1039,7 @@ function newPost() {
     return Post;
 }
 function renderPostForm(post = null) {
+    timeoutuser_paused = true;
     let create = post == null;
     if (create) post = newPost();
     $("#form").show();
@@ -965,7 +1047,7 @@ function renderPostForm(post = null) {
     $("#form").append(`
         <form class="form" id="postForm">
             <input type="hidden" name="Id" value="${post.Id}"/>
-            <input type="hidden" name="Id" value="${loggedUser.Id}"/>
+            <input type="hidden" name="UserId" value="${loggedUser.Id}"/>
 
              <input type="hidden" name="Date" value="${post.Date}"/>
             <label for="Category" class="form-label">Catégorie </label>
@@ -1030,6 +1112,7 @@ function renderPostForm(post = null) {
         if (create || !('keepDate' in post))
             post.Date = Local_to_UTC(Date.now());
         delete post.keepDate;
+        post.UserId = loggedUser.Id;
         post = await Posts_API.Save(post, create);
         if (!Posts_API.error) {
             await showPosts();
