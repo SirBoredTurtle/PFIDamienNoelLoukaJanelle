@@ -102,7 +102,7 @@ export default class Controller {
 
     put(data) {
         if (this.HttpContext.user != null) {
-            if (this.HttpContext.user.Id == data.Id) {
+            if (this.HttpContext.user.Id == data.Id || this.HttpContext.user.Authorizations.writeAccess == 3) {
                 if (this.HttpContext.path.id == "modify") {
                     this.modify(data);
                 }

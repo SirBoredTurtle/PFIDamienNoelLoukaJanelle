@@ -42,14 +42,14 @@ static API_RegisterUser(user) {
     });
 }
 
-static API_ModifyUser(data) {
+static API_ModifyUser(data, accessToken = null) {
     return new Promise(resolve => {
         $.ajax({
             url: `${this.API_URL()}/modify`, 
             method: "put",
             contentType: "application/json",
             headers: {
-                'authorization': `Bearer ${data.AccessToken}`
+                'authorization': `Bearer ${accessToken}`
             },
             data: JSON.stringify(data),
             success: (response) => {
@@ -100,7 +100,6 @@ static async  API_LogoutUser(loggininfo) {
         });
     });
 }
-
 static async API_verify(id, code) {
     console.log(id);
     const url = `${API_user.API_URL()}/verify`; 
@@ -117,11 +116,15 @@ static async API_verify(id, code) {
         }
     });
 }
-static async API_GetUserData(userId ,accessToken) {
+static async API_GetUserData(userId, accessToken) {
     return new Promise(resolve => {
+        let url = this.API_URL();
+        if (userId) {
+            url += `/${userId}`; 
+        }
         $.ajax({
-            url: `${this.API_URL()}`,
-            method: "GET", 
+            url: url,
+            method: "GET",
             contentType: "application/json",
             headers: {
                 'authorization': `Bearer ${accessToken}`
@@ -130,16 +133,17 @@ static async API_GetUserData(userId ,accessToken) {
                 if (response) {
                     resolve(response); 
                 } else {
-                    resolve(null); 
+                    resolve(null);
                 }
             },
             error: (xhr) => {
-                console.error('Login failed:', xhr);
-                resolve(null);  
+                console.error('Failed to fetch user data:', xhr);
+                resolve(null);
             }
         });
     });
 }
+
 
 static async  API_RemoveUser(userId, accessToken) {
     return new Promise((resolve) => {

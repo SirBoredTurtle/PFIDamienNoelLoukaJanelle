@@ -122,7 +122,11 @@ async function showPosts(reset = false) {
     periodic_Refresh_paused = false;
 
     if (loggedUser != undefined) {
-        if (loggedUser.VerifyCode != "verified") {
+        if(loggedUser.Authorizations.readAccess == -1 && loggedUser.Authorizations.writeAccess == -1)
+        {
+            Deconnection(true);
+        }
+        else if (loggedUser.VerifyCode != "verified") {
             showverifyForm();
         }
         else {
@@ -191,9 +195,12 @@ function showCreatePostForm() {
     $("#viewTitle").text("Ajout de nouvelle");
     renderPostForm();
 }
-function showConCmdForm() {
+function showConCmdForm(blocked = false) {
     showFormCompte();
-    $("#viewTitle").text("Connexion");
+    if(blocked)
+        $("#viewTitle").text("Désolé votre compte est bloqué");
+    else
+        $("#viewTitle").text("Connexion");
     renderConForm();
 }
 function showLoginCmdForm() {
@@ -235,9 +242,12 @@ function start_Periodic_Refresh() {
     },
         periodicRefreshPeriod * 1000);
 }
+let remainingTime
 function startDeconnectionTimer() {
-
-    setInterval(async () => {
+    let deconnectionTime = 60;
+    let expirationTime = 10;
+    let remainingTime = deconnectionTime;
+      currentTimeouID = setInterval(async () => {
         if (!timeoutuser_paused) {
             remainingTime--;
 
@@ -331,11 +341,14 @@ function renderPost(post) {
     } else
         endOfData = true;
         let crudIcon = "";
-        if (loggedUser && post.UserId == loggedUser.Id) {
+        if (loggedUser)
+        {
+            if(post.UserId == loggedUser.Id || loggedUser.Authorizations.readAccess == 3  ) {
             crudIcon += `
                 <span class="editCmd cmdIconSmall fa fa-pencil" postId="${post.Id}" title="Modifier nouvelle"></span>
                 <span class="deleteCmd cmdIconSmall fa fa-trash" postId="${post.Id}" title="Effacer nouvelle"></span>
             `;
+            }
         }
         let userLike = loggedUser ? thispostlikes.find(like => like.UserId == loggedUser.Id) : null;
         crudIcon += `
@@ -505,7 +518,7 @@ function attach_Posts_UI_Events_Callback() {
     $(".unlikeCmd").off();
     $(".unlikeCmd").on("click", async function ()
     {
-        let LikeId =  $(this).attr("data-like-id");
+        let LikeId =  $(this).attr("userLike");
         unlike(LikeId);
     });
     $(".moreText").off();
@@ -531,7 +544,7 @@ async function likecmd(likedata)
 }
 async function unlike(likedata)
 {
-    let result = await Likes_API.Delete(likedata);
+    let result = await Likes_API.Save(likedata, true);
 }
 function addWaitingGif() {
     clearTimeout(waiting);
@@ -543,12 +556,12 @@ function removeWaitingGif() {
     clearTimeout(waiting);
     $("#waitingGif").remove();
 }
-async function Deconnection() {
+async function Deconnection(blocked = false) {
     let Deconnection = await API_user.API_LogoutUser(loggedUser);
     if (Deconnection == "") {
         localStorage.removeItem('loggedUser');
         loggedUser = undefined;
-        showConCmdForm();
+        showConCmdForm(blocked);
     }
 }
 /////////////////////// Posts content manipulation ///////////////////////////////////////////////////////
@@ -702,7 +715,6 @@ function newUser() {
     return user;
 }
 function renderConForm() {
-    $("#viewTitle").text("Connexion");
     $("#form").show();
     $("#form").empty();
     $("#form").append(`
@@ -818,7 +830,7 @@ function displayUserList(users) {
         const userRow = `
             <div class="user-row">
                 <img src="${user.Avatar || 'default-avatar.jpg'}" alt="${user.Name}'s avatar" class="avatar" />
-                <a href="#" class="user-name" data-user-id="${user.Id}">${user.Name}</a>
+                <a class="edituser" data-user-id="${user.Id}">${user.Name}</a>
                 <div class="buttons-container">
                 ${promoteButton}
                 <button class="block-button" data-user-id="${user.Id}">${banButtonLabel}</button>
@@ -830,6 +842,12 @@ function displayUserList(users) {
         $("#form").append(userRow);
     });
 
+    $(".edituser").on("click", function ()
+    {
+        event.preventDefault();
+        const userId = $(this).data("user-id");
+        handleEditAction(userId)
+    })  
     $(".delete-button").on("click", function () {
         const userId = $(this).data("user-id");
         handleDeleteAction(userId);
@@ -857,7 +875,13 @@ function displayUserList(users) {
 }
 
 
+async function handleEditAction(userId)
+{
+    let result = await API_user.API_GetUserData(userId, loggedUser.AccessToken);
+    showFormCompte();
+    renderRegisterForm(result);
 
+}
 async function handlePromoteAction(userId) {
     let result = await API_user.API_Promote(userId, loggedUser.AccessToken)
     showFormCompte();
@@ -890,7 +914,7 @@ async function handleDeleteAction(userId) {
 
 
 
-function renderRegisterForm(user = null) {
+function renderRegisterForm(user = null, admin = false) {
     timeoutuser_paused = true;
     let create = user == null;
     if (create) {
@@ -985,11 +1009,8 @@ function renderRegisterForm(user = null) {
             ${!create ? `<input type="button" value="Supprimer le compte" id="deleteAccount" class="btn btn-danger">` : ""}
         </form>
     `);
-
-
     initImageUploaders();
     initFormValidation();
-
     $('#userForm').on("submit", async function (event) {
         event.preventDefault();
         let user = getFormData($("#userForm"));
@@ -1004,9 +1025,7 @@ function renderRegisterForm(user = null) {
         delete user.EmailVerification;
         delete user.PasswordVerification;
 
-        let result = create ? await API_user.API_RegisterUser(user) : await API_user.API_ModifyUser(user);
-        console.log(result)
-        alert(result)
+        let result = create ? await API_user.API_RegisterUser(user) : await API_user.API_ModifyUser(user, loggedUser.AccessToken);
         if (result) {
             Deconnection();
             showPosts();
