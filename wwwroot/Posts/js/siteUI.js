@@ -518,7 +518,8 @@ function attach_Posts_UI_Events_Callback() {
     $(".unlikeCmd").off();
     $(".unlikeCmd").on("click", async function ()
     {
-        let LikeId =  $(this).attr("userLike");
+        let LikeId =  $(this).attr("data-like-id");
+        alert(LikeId)
         unlike(LikeId);
     });
     $(".moreText").off();
@@ -544,7 +545,7 @@ async function likecmd(likedata)
 }
 async function unlike(likedata)
 {
-    let result = await Likes_API.Save(likedata, true);
+    let result = await Likes_API.Delete(likedata);
 }
 function addWaitingGif() {
     clearTimeout(waiting);
